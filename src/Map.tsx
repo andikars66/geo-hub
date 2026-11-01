@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { type Map as MLMap } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { levels, type Region, type Regions, displayed } from "./model";
 import type { LabelStyle } from "./mapStyle";
+import MapLabels from "./MapLabels";
 let registered = false;
 export default function MapView({
   regions,
@@ -255,7 +256,10 @@ export default function MapView({
       alive = false;
     };
   }, [active, ready]);
-  const visible = displayed(regions, active, mode);
+  const visible = useMemo(
+    () => displayed(regions, active, mode),
+    [regions, active, mode],
+  );
   useEffect(() => {
     if (!ready) return;
     const m = map.current!;
@@ -357,19 +361,8 @@ export default function MapView({
           {error}
         </div>
       )}
-      {labels && (
-        <div className="map-labels" aria-hidden="true">
-          {visible.length < 30 &&
-            visible.map((r) => (
-              <MapLabel
-                key={r.id}
-                region={r}
-                siblings={visible}
-                map={map.current}
-                style={labelStyle}
-              />
-            ))}
-        </div>
+      {labels && ready && map.current && (
+        <MapLabels regions={visible} map={map.current} style={labelStyle} />
       )}
       {hover && regions[hover] && (
         <aside
@@ -402,67 +395,5 @@ export default function MapView({
       )}
       <div className="map-credit">GeoHub · Batas hasil agregasi data SLS</div>
     </div>
-  );
-}
-function MapLabel({
-  region,
-  map,
-  siblings,
-  style,
-}: {
-  region: Region;
-  map: MLMap | null;
-  siblings: Region[];
-  style: LabelStyle;
-}) {
-  const [hidden, setHidden] = useState(false);
-  const [point, setPoint] = useState({ x: 0, y: 0 });
-  useEffect(() => {
-    if (!map) return;
-    const update = () => {
-      const b = region.bbox;
-      const p = map.project([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]);
-      setPoint(p);
-      setHidden(
-        siblings
-          .slice(
-            0,
-            siblings.findIndex((r) => r.id === region.id),
-          )
-          .some((r) => {
-            const c = r.bbox,
-              q = map.project([(c[0] + c[2]) / 2, (c[1] + c[3]) / 2]);
-            return (
-              Math.abs(p.x - q.x) <
-                (Math.min(160, r.name.length * style.size * 0.6) +
-                  Math.min(160, region.name.length * style.size * 0.6)) /
-                  2 && Math.abs(p.y - q.y) < style.size + 10
-            );
-          }),
-      );
-    };
-    update();
-    map.on("move", update);
-    return () => {
-      map.off("move", update);
-    };
-  }, [map, region, style, siblings]);
-  return (
-    <span
-      style={{
-        fontSize: style.size,
-        color: style.color,
-        fontWeight: style.bold ? 700 : 400,
-        background: style.background ? style.backgroundColor : "transparent",
-        padding: style.background ? "3px 6px" : 0,
-        borderRadius: 4,
-        textShadow: style.background ? "none" : undefined,
-        display: hidden ? "none" : undefined,
-        left: point.x,
-        top: point.y,
-      }}
-    >
-      {region.name}
-    </span>
   );
 }

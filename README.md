@@ -53,7 +53,7 @@ Sebelum publikasi periksa kuota/batas file paket gratis terbaru, dukungan byte-r
 
 ## Batasan yang disengaja
 
-Basemap default OpenStreetMap dengan opsi kanvas kosong. Google Maps belum diintegrasikan; tidak ada endpoint Google tidak resmi. Ekspor tanpa basemap tetap berfungsi penuh. Label peta dibatasi untuk menghindari daftar besar; label ekspor memakai deteksi benturan. Font menggunakan stack sistem tanpa request eksternal. Tanggal pemutakhiran dan status resmi batas tidak disimpulkan dari nama berkas.
+Basemap default OpenStreetMap dengan opsi kanvas kosong. Google Maps belum diintegrasikan; tidak ada endpoint Google tidak resmi. Ekspor tanpa basemap tetap berfungsi penuh. Label peta mengikuti ruang layar saat zoom/pan tanpa batas jumlah wilayah tetap; label ekspor memakai deteksi benturan. Font menggunakan stack sistem tanpa request eksternal. Tanggal pemutakhiran dan status resmi batas tidak disimpulkan dari nama berkas.
 
 Lihat [PRD.md](PRD.md), [DESIGN.md](DESIGN.md), dan [AGENTS.md](AGENTS.md) untuk kontrak produk, anomali sumber, dan aturan kontribusi.
 
@@ -83,3 +83,5 @@ OpenStreetMap default memakai endpoint resmi `tile.openstreetmap.org` dengan atr
 Tes redesign mencakup rendering, search/reset, Back/Forward, pengaturan warna, PNG, mobile, audit aksesibilitas, hover dan klik poligon. Kegagalan OSM sengaja disimulasikan untuk memverifikasi fallback; ini tidak membuktikan konektivitas tile eksternal pada seluruh jaringan pengguna.
 
 Pengaturan tampilan kini dikelompokkan menjadi peta, garis batas, isian, dan label. Garis default 2 px, warna/ketebalannya terpisah dari isian. Label mendukung ukuran, warna, bold, serta warna latar opsional. Tooltip hover mengikuti poligon di dekat pointer dan dijaga dalam viewport. Kartu konteks desktop berada di bawah logo. Dialog memakai satu area scroll (wheel/touch) dan dapat ditutup dengan klik di luar atau Escape. Fokus pencarian memakai indikator hijau halus pada wadah, bukan outline merah/coklat pada input.
+
+Label adaptif memakai pengukuran teks dan indeks benturan berbasis grid. Hanya label yang muat di viewport dan ruang proyeksi wilayah yang dirender, sehingga memilih SLS pada konteks kabupaten tetap dapat menampilkan nama setelah zoom. Kartu konteks dipadatkan; instruksi klik berulang dihapus.

@@ -1,3 +1,4 @@
+import { layoutLabels } from "../src/labelLayout";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import {
@@ -65,5 +66,60 @@ describe("real dataset contract", () => {
   it("guards canvas allocation", () => {
     expect(() => validateSize(4096, 4096)).toThrow();
     expect(() => validateSize(1600, 1000)).not.toThrow();
+  });
+});
+
+describe("adaptive screen-space labels", () => {
+  it("reveals labels as projected space grows without a count cutoff", () => {
+    const base = {
+      name: "Dusun",
+      x: 80,
+      y: 80,
+      width: 60,
+      height: 16,
+      availableWidth: 20,
+      availableHeight: 10,
+    };
+    expect(layoutLabels([{ ...base, id: "a" }], 1000, 1000)).toHaveLength(0);
+    expect(
+      layoutLabels(
+        [{ ...base, id: "a", availableWidth: 100, availableHeight: 40 }],
+        1000,
+        1000,
+      ),
+    ).toHaveLength(1);
+    const many = Array.from({ length: 50 }, (_, i) => ({
+      ...base,
+      id: String(i),
+      x: 60 + (i % 10) * 90,
+      y: 40 + Math.floor(i / 10) * 60,
+      availableWidth: 100,
+      availableHeight: 40,
+    }));
+    expect(layoutLabels(many, 1000, 1000)).toHaveLength(50);
+  });
+  it("only accepted, in-viewport labels reserve collision space", () => {
+    const a = {
+      id: "a",
+      name: "A",
+      x: 50,
+      y: 50,
+      width: 60,
+      height: 20,
+      availableWidth: 100,
+      availableHeight: 30,
+    };
+    expect(
+      layoutLabels(
+        [
+          a,
+          { ...a, id: "b", x: 55 },
+          { ...a, id: "c", x: 125 },
+          { ...a, id: "off", x: -30 },
+        ],
+        300,
+        200,
+      ).map((x) => x.id),
+    ).toEqual(["a", "c"]);
   });
 });

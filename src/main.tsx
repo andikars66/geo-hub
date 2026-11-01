@@ -265,28 +265,42 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
         </button>
       </div>
       <section className="context-panel" aria-label="Wilayah aktif">
-        <nav className="breadcrumbs" aria-label="Hierarki wilayah">
-          {active.ancestors.map((id, i) => (
-            <span key={id}>
-              {i > 0 && <ChevronRight size={12} />}
-              <a
-                href={`#/wilayah/${encodeURIComponent(id)}`}
-                aria-current={id === active.id ? "page" : undefined}
-              >
-                {regions[id].name}
-              </a>
-            </span>
-          ))}
-        </nav>
+        {active.ancestors.length > 1 && (
+          <nav className="breadcrumbs" aria-label="Hierarki wilayah">
+            {active.ancestors.slice(0, -1).map((id, i) => (
+              <span key={id}>
+                {i > 0 && <ChevronRight size={12} />}
+                <a
+                  href={`#/wilayah/${encodeURIComponent(id)}`}
+                  aria-current={id === active.id ? "page" : undefined}
+                >
+                  {regions[id].name}
+                </a>
+              </span>
+            ))}
+          </nav>
+        )}
         <div className="context-main">
           <div>
             <span className="eyebrow">{labels[active.level]}</span>
             <h1>{active.name}</h1>
             <span className="code">{active.sourceCode}</span>
           </div>
-          <button onClick={() => setSearchOpen(!searchOpen)}>
-            {active.childIds.length} wilayah <ChevronRight size={16} />
-          </button>
+          <div className="context-actions">
+            {" "}
+            <button onClick={() => setSearchOpen(!searchOpen)}>
+              {active.childIds.length} wilayah <ChevronRight size={16} />
+            </button>
+            <button
+              aria-label="Unduh peta wilayah aktif"
+              onClick={() => {
+                setSelected([active.id]);
+                setPanel("export");
+              }}
+            >
+              <Download size={14} />
+            </button>
+          </div>
         </div>
         {active.qualityFlags.length > 0 && (
           <details className="notice">
@@ -299,19 +313,6 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
             {active.aliases.join(" · ")}
           </details>
         )}
-        <div className="context-footer">
-          <span>Klik batas untuk menjelajah lebih dalam</span>
-          <button
-            aria-label="Unduh peta wilayah aktif"
-            onClick={() => {
-              setSelected([active.id]);
-              setPanel("export");
-            }}
-          >
-            <Download size={14} />
-            Unduh
-          </button>
-        </div>
       </section>
       {notice && (
         <div className="toast" role="status">
@@ -396,10 +397,7 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
               </fieldset>
               <fieldset className="settings-group">
                 <legend>Garis batas</legend>
-                <p className="setting-hint">
-                  Batas anak lebih tegas; outline wilayah aktif tetap paling
-                  kuat.
-                </p>
+
                 <div className="two-col">
                   <label>
                     Warna garis

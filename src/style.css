@@ -1289,3 +1289,85 @@ dialog[open] {
     0 3px 20px #1232,
     0 0 0 1px #7d9b8840;
 }
+.adaptive-labels span {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+.context-panel {
+  border-radius: 9px;
+  box-shadow: 0 3px 14px #1232;
+}
+.context-panel .breadcrumbs {
+  padding: 8px 12px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.context-main {
+  display: block;
+  padding: 12px;
+}
+.context-main h1 {
+  font-size: 18px;
+  margin: 4px 0;
+  line-height: 1.2;
+}
+.context-main .eyebrow {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.context-main .code {
+  font-size: 10px;
+}
+.context-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.context-actions button {
+  border: 0;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 11px;
+  min-height: 36px;
+}
+.context-actions button:hover {
+  background: #eaf0e9;
+}
+.context-actions button:last-child {
+  min-width: 44px;
+}
+.context-panel details {
+  margin: 0 12px 10px;
+}
+@media (min-width: 900px) {
+  .context-panel {
+    width: 280px;
+    top: 110px;
+  }
+  .context-main h1 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 899px) {
+  .context-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .context-actions {
+    margin: 0;
+    gap: 0;
+  }
+  .context-actions button:first-child {
+    max-width: 90px;
+  }
+  .context-main h1 {
+    font-size: 16px;
+  }
+}

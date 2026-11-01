@@ -183,3 +183,52 @@ test("map style controls, wheel scrolling, backdrop dismissal and search focus",
   await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
   await page.screenshot({ path: "test-results/settings-mobile.png" });
 });
+test("SLS labels respond to zoom while county context stays active", async ({
+  page,
+}) => {
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.goto("/#/wilayah/kabupaten%3A5202?batas=sls");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  const before = await page
+    .locator(".map-labels span")
+    .evaluateAll((es) => es.map((e) => e.getAttribute("data-region-id")));
+  for (let i = 0; i < 3; i++) {
+    await page.getByRole("button", { name: "Perbesar", exact: true }).click();
+    await page.waitForTimeout(350);
+  }
+  await expect
+    .poll(async () => {
+      const after = await page
+        .locator(".map-labels span")
+        .evaluateAll((es) => es.map((e) => e.getAttribute("data-region-id")));
+      return after.filter((id) => !before.includes(id)).length;
+    })
+    .toBeGreaterThan(0);
+  await expect(page.locator(".context-main h1")).toHaveText("Lombok Tengah");
+  expect(page.url()).toContain("batas=sls");
+  const boxes = await page.locator(".map-labels span").evaluateAll((es) =>
+    es.map((e) => {
+      const b = e.getBoundingClientRect();
+      return { x: b.x, y: b.y, right: b.right, bottom: b.bottom };
+    }),
+  );
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i],
+        b = boxes[j];
+      expect(
+        a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y,
+      ).toBe(false);
+    }
+  await expect(
+    page.getByText("Klik batas untuk menjelajah lebih dalam"),
+  ).toHaveCount(0);
+  expect(
+    (await page.locator(".context-panel").boundingBox())!.height,
+  ).toBeLessThan(170);
+  await page.screenshot({ path: "test-results/adaptive-labels.png" });
+});
