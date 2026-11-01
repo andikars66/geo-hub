@@ -232,3 +232,45 @@ test("SLS labels respond to zoom while county context stays active", async ({
   ).toBeLessThan(170);
   await page.screenshot({ path: "test-results/adaptive-labels.png" });
 });
+test("right-drag cannot rotate or tilt the map while left-drag still pans", async ({
+  page,
+}) => {
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.goto("/");
+  await expect
+    .poll(() => page.locator(".map-labels span").count())
+    .toBeGreaterThan(0);
+  await page.waitForTimeout(650);
+  const positions = () =>
+    page
+      .locator(".map-labels span")
+      .evaluateAll((es) =>
+        es.map((e) => ({
+          id: e.getAttribute("data-region-id"),
+          x: (e as HTMLElement).style.left,
+          y: (e as HTMLElement).style.top,
+        })),
+      );
+  const before = await positions();
+  await page.mouse.move(1000, 500);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(1200, 650, { steps: 12 });
+  await page.mouse.up({ button: "right" });
+  await page.waitForTimeout(300);
+  expect(await positions()).toEqual(before);
+  await page.locator("canvas.maplibregl-canvas").focus();
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowUp");
+  await page.waitForTimeout(300);
+  expect(await positions()).toEqual(before);
+  await page.mouse.move(1000, 500);
+  await page.mouse.down();
+  await page.mouse.move(1100, 540, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(positions).not.toEqual(before);
+  await page.keyboard.press("Tab");
+  await page.getByRole("button", { name: "Unduh peta wilayah aktif" }).focus();
+  await expect(
+    page.getByRole("button", { name: "Unduh peta wilayah aktif" }),
+  ).toHaveCSS("outline-color", "rgb(22, 90, 67)");
+});

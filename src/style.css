@@ -54,7 +54,7 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 3px solid #a84713;
+  outline: 3px solid #165a43;
   outline-offset: 3px;
 }
 a {
@@ -254,9 +254,9 @@ button svg {
   margin-top: 3px;
 }
 .selected {
-  background: #fff2e7;
-  color: #974110;
-  border-color: #d8ad8b;
+  background: #eaf3ec;
+  color: #165a43;
+  border-color: #a7bdac;
 }
 .list-caption {
   padding: 12px 24px;
@@ -336,8 +336,8 @@ button svg {
   font-size: 20px;
 }
 .is-picked {
-  color: #a84713;
-  background: #fff0e2;
+  color: #165a43;
+  background: #eaf3ec;
 }
 .flag {
   display: inline-flex;

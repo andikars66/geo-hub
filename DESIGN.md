@@ -1,6 +1,6 @@
 # GeoHub — Rancangan Teknis dan Antarmuka
 
-> Keputusan redesign terbaru: fokus utama adalah mencari dan melihat hierarki wilayah. Peta layar penuh tanpa sidebar kiri; pencarian di tengah atas dengan hasil langsung di bawahnya dan tombol reset. Klik hasil atau poligon membuka wilayah; hover menampilkan nama, kode, jalur dan ringkasan anak. OpenStreetMap menjadi basemap default (atribusi wajib), dengan opsi kanvas kosong. Pengaturan mencakup level batas, label, transparansi, warna tunggal atau warna berbeda per wilayah. Ekspor adalah aksi sekunder pada kartu wilayah aktif; pemilihan banyak wilayah melalui direktori tidak lagi menjadi alur utama versi ini. Ketentuan ini menggantikan layout dan prioritas ekspor versi awal di bawah. Kartu konteks desktop ringkas berada di kiri atas di bawah logo; breadcrumb hanya memuat induk dan unduhan berupa ikon sekunder. Label tidak dibatasi jumlah wilayah: tampil sesuai ruang layar dan benturan teks, diperbarui saat zoom/pan/resize; informasi hover mengikuti pointer dekat poligon, dengan highlight halus. Garis batas anak default 2 px dengan warna independen dari isian. Pengguna dapat mengatur ukuran, warna, tebal dan latar label. Dialog memakai satu area scroll isi dan dapat ditutup dengan klik di luar, Escape atau tombol tutup; interaksi di dalam tidak menutup dialog.
+> Keputusan redesign terbaru: fokus utama adalah mencari dan melihat hierarki wilayah. Peta layar penuh tanpa sidebar kiri; pencarian di tengah atas dengan hasil langsung di bawahnya dan tombol reset. Klik hasil atau poligon membuka wilayah; hover menampilkan nama, kode, jalur dan ringkasan anak. OpenStreetMap menjadi basemap default (atribusi wajib), dengan opsi kanvas kosong. Pengaturan mencakup level batas, label, transparansi, warna tunggal atau warna berbeda per wilayah. Ekspor adalah aksi sekunder pada kartu wilayah aktif; pemilihan banyak wilayah melalui direktori tidak lagi menjadi alur utama versi ini. Ketentuan ini menggantikan layout dan prioritas ekspor versi awal di bawah. Kartu konteks desktop ringkas berada di kiri atas di bawah logo; breadcrumb hanya memuat induk dan unduhan berupa ikon sekunder. Label tidak dibatasi jumlah wilayah: tampil sesuai ruang layar dan benturan teks, diperbarui saat zoom/pan/resize; informasi hover mengikuti pointer dekat poligon, dengan highlight halus. Garis batas anak default 2 px dengan warna independen dari isian. Pengguna dapat mengatur ukuran, warna, tebal dan latar label. Peta selalu datar dan menghadap utara; rotasi/pitch lewat mouse, sentuhan, dan keyboard dinonaktifkan, sementara pan/zoom tetap tersedia. Indikator aktif/fokus memakai hijau, tanpa border cokelat/merah tua. Dialog memakai satu area scroll isi dan dapat ditutup dengan klik di luar, Escape atau tombol tutup; interaksi di dalam tidak menutup dialog.
 
 
 Status: kontrak rancangan MVP dengan implementasi v0.1. Lihat catatan implementasi di akhir untuk perbedaan dan batasan aktual. Persyaratan produk ada di PRD.md.
@@ -121,7 +121,7 @@ Pencarian memakai indeks lokal ringkas. Prioritas: kode tepat → nama tepat →
 | Kanvas/panel | `#F7F7F2` / `#FFFFFF` |
 | Teks utama/sekunder | `#202923` / `#526057` |
 | Aksen tindakan | `#165A43` |
-| Pilihan ekspor | `#A84713` |
+| Pilihan ekspor | `#165A43` |
 | Garis UI | `#DCE2DB` |
 | Spacing | 4, 8, 12, 16, 24, 32 px |
 | Radius | 6–10 px untuk kontrol/panel |
@@ -160,7 +160,7 @@ Gerbang pertama: audit sumber dan registry anomali. Berikutnya: prototipe PMTile
 
 ## Catatan implementasi v0.1
 
-Aplikasi, pipeline, aset PMTiles, indeks, shard geometri ekspor, dan tes kini tersedia. Command aktual ada di README.md. Node dipin 24.19.0, tippecanoe 2.79.0. Batas bersama diproses dengan `--detect-shared-borders`; geometri detail tidak disimplifikasi independen. Data tiles zoom 8–14, overzoom untuk detail. Ekspor menggunakan UTM 50S dan penunjuk utara grid yang diberi label.
+Aplikasi, pipeline, aset PMTiles, indeks, shard geometri ekspor, dan tes kini tersedia. Command aktual ada di DEVELOPMENT.md. Node dipin 24.19.0, tippecanoe 2.79.0. Batas bersama diproses dengan `--detect-shared-borders`; geometri detail tidak disimplifikasi independen. Data tiles zoom 8–14, overzoom untuk detail. Ekspor menggunakan UTM 50S dan penunjuk utara grid yang diberi label.
 
 Penyesuaian awal: font memakai stack sistem agar tidak ada request font eksternal. Label peta memakai overlay DOM dengan satu perhitungan ruang layar per frame. Kandidat di luar viewport disaring; teks diukur sesuai font/style dan ditempatkan hanya jika muat dalam bounding box proyeksi wilayah serta tidak bertumpuk dengan label yang sudah ditempatkan. Tidak ada batas jumlah wilayah tetap; zoom menampilkan kandidat yang baru muat. Basemap hanya kanvas kosong; adapter penyedia berizin masih pekerjaan lanjutan. Nama dan alias asli tetap tersedia dalam indeks. Pemisahan pipeline ke fitur folder lebih rinci dapat dilakukan saat kompleksitas meningkat; saat ini komponen dipisah berdasarkan Map, ExportPanel, export renderer, model dan shell.
 

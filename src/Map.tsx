@@ -105,6 +105,12 @@ export default function MapView({
       },
       center: [116.27, -8.68],
       zoom: 9,
+      bearing: 0,
+      pitch: 0,
+      maxPitch: 0,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
       attributionControl: { compact: true },
       locale: {
         "NavigationControl.ZoomIn": "Perbesar",
@@ -114,8 +120,10 @@ export default function MapView({
       },
     });
     map.current = m;
+    m.touchZoomRotate.disableRotation();
+    m.keyboard.disableRotation();
     m.addControl(
-      new maplibregl.NavigationControl({ showCompass: true }),
+      new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
     );
     m.addControl(
@@ -290,13 +298,13 @@ export default function MapView({
       m.setPaintProperty("fill-" + level, "fill-color", [
         "case",
         ["in", ["get", "id"], ["literal", selected]],
-        "#cd773e",
+        "#43815d",
         colorful && visible.length ? colors : color,
       ]);
       m.setPaintProperty("line-" + level, "line-color", [
         "case",
         ["in", ["get", "id"], ["literal", selected]],
-        "#a84713",
+        "#165a43",
         lineColor,
       ]);
       m.setPaintProperty("line-" + level, "line-width", lineWidth);
