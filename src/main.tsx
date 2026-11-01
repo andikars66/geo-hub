@@ -25,6 +25,7 @@ import {
   type Region,
 } from "./model";
 import "./style.css";
+import { defaultLabelStyle } from "./mapStyle";
 const MapView = lazy(() => import("./Map"));
 const ExportPanel = lazy(() => import("./ExportPanel"));
 function App() {
@@ -80,6 +81,10 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
     [basemap, setBasemap] = useState(true),
     [colorful, setColorful] = useState(false),
     [color, setColor] = useState("#56936e");
+  const [lineColor, setLineColor] = useState("#285c43"),
+    [lineWidth, setLineWidth] = useState(2),
+    [labelStyle, setLabelStyle] = useState(defaultLabelStyle);
+  const backdropDown = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null),
     opener = useRef<HTMLElement | null>(null);
   const view = viewFromHash(hash, regions),
@@ -163,6 +168,9 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
             basemap={basemap}
             colorful={colorful}
             color={color}
+            lineColor={lineColor}
+            lineWidth={lineWidth}
+            labelStyle={labelStyle}
             onHit={(id) => navigate(id)}
           />
         </Suspense>
@@ -319,6 +327,28 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
       <dialog
         aria-labelledby="panel-heading"
         ref={dialog}
+        onPointerDown={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          backdropDown.current =
+            e.target === e.currentTarget &&
+            (e.clientX < r.left ||
+              e.clientX > r.right ||
+              e.clientY < r.top ||
+              e.clientY > r.bottom);
+        }}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          if (
+            backdropDown.current &&
+            e.target === e.currentTarget &&
+            (e.clientX < r.left ||
+              e.clientX > r.right ||
+              e.clientY < r.top ||
+              e.clientY > r.bottom)
+          )
+            setPanel(null);
+          backdropDown.current = false;
+        }}
         onCancel={() => setPanel(null)}
         onClose={() => setPanel(null)}
       >
@@ -336,81 +366,178 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
         </div>
         <div className="dialog-body">
           {panel === "layer" && (
-            <>
-              <p className="muted">
-                Atur batas dalam wilayah aktif. Peta tetap mengikuti konteks
-                direktori.
-              </p>
-              <label>
-                Level batas
-                <select
-                  value={view.mode}
-                  onChange={(e) => navigate(active.id, e.target.value)}
-                >
-                  <option value="auto">Otomatis · satu level di bawah</option>
-                  {modeOptions.map((l) => (
-                    <option key={l} value={l}>
-                      {labels[l]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={view.labels}
-                  onChange={(e) =>
-                    navigate(active.id, view.mode, e.target.checked)
-                  }
-                />
-                Tampilkan label
-              </label>
-              <p className="muted small">
-                Label peta ditampilkan untuk paling banyak 29 wilayah sekaligus
-                agar tetap terbaca. Gunakan direktori untuk daftar lengkap.
-              </p>
-              <label>
-                Transparansi isian · {Math.round(opacity * 100)}%
-                <input
-                  type="range"
-                  min="0"
-                  max="0.8"
-                  step="0.01"
-                  value={opacity}
-                  onChange={(e) => setOpacity(+e.target.value)}
-                />
-              </label>
-              <label>
-                Peta dasar
-                <select
-                  value={basemap ? "osm" : "none"}
-                  onChange={(e) => setBasemap(e.target.value === "osm")}
-                >
-                  <option value="osm">OpenStreetMap</option>
-                  <option value="none">Kanvas bersih</option>
-                </select>
-              </label>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={colorful}
-                  onChange={(e) => setColorful(e.target.checked)}
-                />
-                Warna berbeda setiap wilayah
-              </label>
-              <label>
-                Warna batas dan isian
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                />
-              </label>
-              <p className="muted">
-                Peta dasar © OpenStreetMap contributors. Jika jaringan tidak
-                tersedia, batas wilayah tetap dapat digunakan.
-              </p>
-            </>
+            <div className="map-settings">
+              <fieldset className="settings-group">
+                <legend>Peta & wilayah</legend>
+                <label>
+                  Peta dasar
+                  <select
+                    value={basemap ? "osm" : "none"}
+                    onChange={(e) => setBasemap(e.target.value === "osm")}
+                  >
+                    <option value="osm">OpenStreetMap</option>
+                    <option value="none">Kanvas bersih</option>
+                  </select>
+                </label>
+                <label>
+                  Level batas
+                  <select
+                    value={view.mode}
+                    onChange={(e) => navigate(active.id, e.target.value)}
+                  >
+                    <option value="auto">Otomatis · satu level di bawah</option>
+                    {modeOptions.map((l) => (
+                      <option key={l} value={l}>
+                        {labels[l]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>Garis batas</legend>
+                <p className="setting-hint">
+                  Batas anak lebih tegas; outline wilayah aktif tetap paling
+                  kuat.
+                </p>
+                <div className="two-col">
+                  <label>
+                    Warna garis
+                    <input
+                      type="color"
+                      value={lineColor}
+                      onChange={(e) => setLineColor(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Ketebalan garis · {lineWidth} px
+                    <input
+                      aria-label="Ketebalan garis batas"
+                      type="range"
+                      min="0.5"
+                      max="6"
+                      step="0.5"
+                      value={lineWidth}
+                      onChange={(e) => setLineWidth(+e.target.value)}
+                    />
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>Isian wilayah</legend>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={colorful}
+                    onChange={(e) => setColorful(e.target.checked)}
+                  />
+                  Warna berbeda setiap wilayah
+                </label>
+                <div className="two-col">
+                  <label>
+                    Warna isian
+                    <input
+                      type="color"
+                      value={color}
+                      disabled={colorful}
+                      onChange={(e) => setColor(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Opasitas · {Math.round(opacity * 100)}%
+                    <input
+                      aria-label="Opasitas isian"
+                      type="range"
+                      min="0"
+                      max="0.8"
+                      step="0.01"
+                      value={opacity}
+                      onChange={(e) => setOpacity(+e.target.value)}
+                    />
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>Label wilayah</legend>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={view.labels}
+                    onChange={(e) =>
+                      navigate(active.id, view.mode, e.target.checked)
+                    }
+                  />
+                  Tampilkan label
+                </label>
+                <div className="two-col">
+                  <label>
+                    Ukuran label · {labelStyle.size} px
+                    <input
+                      aria-label="Ukuran label"
+                      type="range"
+                      min="9"
+                      max="20"
+                      value={labelStyle.size}
+                      onChange={(e) =>
+                        setLabelStyle((v) => ({ ...v, size: +e.target.value }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    Warna label
+                    <input
+                      type="color"
+                      value={labelStyle.color}
+                      onChange={(e) =>
+                        setLabelStyle((v) => ({ ...v, color: e.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={labelStyle.bold}
+                    onChange={(e) =>
+                      setLabelStyle((v) => ({ ...v, bold: e.target.checked }))
+                    }
+                  />
+                  Teks tebal
+                </label>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={labelStyle.background}
+                    onChange={(e) =>
+                      setLabelStyle((v) => ({
+                        ...v,
+                        background: e.target.checked,
+                      }))
+                    }
+                  />
+                  Latar label
+                </label>
+                {labelStyle.background && (
+                  <label>
+                    Warna latar label
+                    <input
+                      type="color"
+                      value={labelStyle.backgroundColor}
+                      onChange={(e) =>
+                        setLabelStyle((v) => ({
+                          ...v,
+                          backgroundColor: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                )}
+                <p className="setting-hint">
+                  Label yang bertumpuk disembunyikan. Buka wilayah lebih dalam
+                  untuk melihat detail.
+                </p>
+              </fieldset>
+            </div>
           )}
           {panel === "export" && (
             <Suspense fallback={<p>Memuat pengaturan…</p>}>

@@ -1200,3 +1200,92 @@ legend {
     left: 45%;
   }
 }
+@media (min-width: 900px) {
+  .context-panel {
+    top: 110px;
+    bottom: auto;
+    width: 350px;
+    max-height: calc(100dvh - 145px);
+    overflow: auto;
+  }
+  .context-main {
+    align-items: flex-start;
+  }
+  .context-main h1 {
+    font-size: 20px;
+  }
+}
+.hover-card {
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+  max-width: calc(100vw - 24px);
+}
+dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 90dvh;
+}
+.dialog-head {
+  flex: 0 0 auto;
+  position: static;
+}
+.dialog-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.map-settings {
+  display: grid;
+  gap: 20px;
+}
+.map-settings .settings-group {
+  margin: 0;
+  padding: 16px;
+  border-color: #e1e7df;
+}
+.settings-group legend {
+  font-size: 14px;
+  font-weight: 650;
+  color: #284735;
+}
+.settings-group > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.settings-group > label:last-child {
+  margin-bottom: 0;
+}
+.settings-group .check {
+  flex-direction: row;
+  margin: 0;
+  min-height: 44px;
+}
+.settings-group .two-col {
+  margin: 12px 0 0;
+  gap: 20px;
+}
+.setting-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #526057;
+  margin: 0 0 12px;
+}
+.settings-group .setting-hint:last-child {
+  margin: 10px 0 0;
+}
+.explore-search input:focus-visible {
+  outline: none;
+}
+.explore-search .searchbox:focus-within {
+  border-color: #7d9b88;
+  box-shadow:
+    0 3px 20px #1232,
+    0 0 0 1px #7d9b8840;
+}

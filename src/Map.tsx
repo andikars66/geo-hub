@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import maplibregl, { type Map as MLMap } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { levels, type Region, type Regions, displayed } from "./model";
+import type { LabelStyle } from "./mapStyle";
 let registered = false;
 export default function MapView({
   regions,
@@ -16,6 +17,9 @@ export default function MapView({
   basemap,
   colorful,
   color,
+  lineColor,
+  lineWidth,
+  labelStyle,
 }: {
   regions: Regions;
   active: Region;
@@ -28,8 +32,29 @@ export default function MapView({
   basemap: boolean;
   colorful: boolean;
   color: string;
+  lineColor: string;
+  lineWidth: number;
+  labelStyle: LabelStyle;
 }) {
   const [hover, setHover] = useState<string | null>(null);
+  const [pointer, setPointer] = useState({ x: 0, y: 0 });
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const tooltip = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (!tooltip.current || !host.current) return;
+    const r = tooltip.current.getBoundingClientRect(),
+      w = host.current.clientWidth,
+      h = host.current.clientHeight;
+    setTooltipPosition({
+      x: Math.max(
+        8,
+        pointer.x + 18 + r.width < w
+          ? pointer.x + 18
+          : pointer.x - r.width - 18,
+      ),
+      y: Math.max(8, Math.min(pointer.y + 18, h - r.height - 8)),
+    });
+  }, [hover, pointer]);
   const activeRef = useRef(active);
   activeRef.current = active;
   const host = useRef<HTMLDivElement>(null),
@@ -140,9 +165,11 @@ export default function MapView({
         })
         .find((f) => f.properties?.id);
       setHover(f?.properties.id || null);
+      setPointer({ x: e.point.x, y: e.point.y });
       m.getCanvas().style.cursor = f ? "pointer" : "";
     });
     m.on("mouseout", () => setHover(null));
+    m.on("movestart", () => setHover(null));
     m.on("click", (e) => {
       if (!m.getLayer("fill-kabupaten")) return;
       const f = m
@@ -266,8 +293,9 @@ export default function MapView({
         "case",
         ["in", ["get", "id"], ["literal", selected]],
         "#a84713",
-        color,
+        lineColor,
       ]);
+      m.setPaintProperty("line-" + level, "line-width", lineWidth);
     }
   }, [
     ready,
@@ -279,6 +307,38 @@ export default function MapView({
     basemap,
     colorful,
     color,
+    lineColor,
+    lineWidth,
+  ]);
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    for (const level of levels) {
+      m.setPaintProperty("fill-" + level, "fill-opacity", [
+        "case",
+        ["==", ["get", "id"], hover || ""],
+        Math.min(opacity + 0.13, 0.9),
+        opacity,
+      ]);
+      m.setPaintProperty("line-" + level, "line-width", [
+        "case",
+        ["==", ["get", "id"], hover || ""],
+        lineWidth + 0.6,
+        lineWidth,
+      ]);
+    }
+    m.setPaintProperty("active", "line-color", lineColor);
+    m.setPaintProperty("active", "line-width", lineWidth + 1);
+  }, [
+    ready,
+    hover,
+    opacity,
+    lineWidth,
+    lineColor,
+    mode,
+    active,
+    color,
+    colorful,
   ]);
   return (
     <div className="map-frame">
@@ -306,12 +366,22 @@ export default function MapView({
                 region={r}
                 siblings={visible}
                 map={map.current}
+                style={labelStyle}
               />
             ))}
         </div>
       )}
       {hover && regions[hover] && (
-        <aside className="hover-card" aria-label="Informasi wilayah">
+        <aside
+          ref={tooltip}
+          className="hover-card"
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            right: "auto",
+          }}
+          aria-label="Informasi wilayah"
+        >
           <span className="eyebrow">{regions[hover].level}</span>
           <h2>{regions[hover].name}</h2>
           <p className="code">{regions[hover].sourceCode}</p>
@@ -338,10 +408,12 @@ function MapLabel({
   region,
   map,
   siblings,
+  style,
 }: {
   region: Region;
   map: MLMap | null;
   siblings: Region[];
+  style: LabelStyle;
 }) {
   const [hidden, setHidden] = useState(false);
   const [point, setPoint] = useState({ x: 0, y: 0 });
@@ -362,9 +434,9 @@ function MapLabel({
               q = map.project([(c[0] + c[2]) / 2, (c[1] + c[3]) / 2]);
             return (
               Math.abs(p.x - q.x) <
-                (Math.min(160, r.name.length * 6) +
-                  Math.min(160, region.name.length * 6)) /
-                  2 && Math.abs(p.y - q.y) < 16
+                (Math.min(160, r.name.length * style.size * 0.6) +
+                  Math.min(160, region.name.length * style.size * 0.6)) /
+                  2 && Math.abs(p.y - q.y) < style.size + 10
             );
           }),
       );
@@ -374,10 +446,17 @@ function MapLabel({
     return () => {
       map.off("move", update);
     };
-  }, [map, region]);
+  }, [map, region, style, siblings]);
   return (
     <span
       style={{
+        fontSize: style.size,
+        color: style.color,
+        fontWeight: style.bold ? 700 : 400,
+        background: style.background ? style.backgroundColor : "transparent",
+        padding: style.background ? "3px 6px" : 0,
+        borderRadius: 4,
+        textShadow: style.background ? "none" : undefined,
         display: hidden ? "none" : undefined,
         left: point.x,
         top: point.y,

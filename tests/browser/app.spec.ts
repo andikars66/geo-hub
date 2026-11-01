@@ -39,7 +39,7 @@ test("search-first navigation, map rendering, settings and secondary export", as
     .click();
   await page.getByRole("combobox", { name: "Peta dasar" }).selectOption("none");
   await page.getByLabel("Warna berbeda setiap wilayah").check();
-  await page.getByLabel("Warna batas dan isian").fill("#327455");
+  await page.getByLabel("Warna garis", { exact: true }).fill("#327455");
   await page.keyboard.press("Escape");
   await page
     .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
@@ -117,10 +117,69 @@ test("hover identifies hierarchy and clicking drills into polygon", async ({
         await expect(page.locator(".hover-card")).toContainText(
           "wilayah di bawahnya",
         );
+        const tip = await page.locator(".hover-card").boundingBox();
+        expect(
+          Math.min(Math.abs(tip!.x - x), Math.abs(tip!.x + tip!.width - x)),
+        ).toBeLessThan(40);
+        expect(tip!.y + tip!.height).toBeLessThanOrEqual(960);
+        await page.screenshot({ path: "test-results/hover.png" });
         await page.mouse.click(x, y);
         await expect(page.locator(".context-main h1")).toHaveText(name);
         found = true;
       }
     }
   expect(found).toBeTruthy();
+});
+test("map style controls, wheel scrolling, backdrop dismissal and search focus", async ({
+  page,
+}) => {
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.goto("/");
+  await expect(page.locator(".context-main h1")).toBeVisible();
+  const logo = await page.locator(".explore-brand").boundingBox(),
+    context = await page.locator(".context-panel").boundingBox();
+  expect(context!.y).toBeGreaterThan(logo!.y + logo!.height);
+  expect(context!.y).toBeLessThan(150);
+  await page
+    .getByRole("button", { name: "Pengaturan peta", exact: true })
+    .click();
+  await page.getByLabel("Warna garis", { exact: true }).fill("#123456");
+  await page.getByLabel("Ketebalan garis batas", { exact: true }).fill("4");
+  const body = page.locator(".dialog-body");
+  const rect = await body.boundingBox();
+  await page.mouse.move(rect!.x + 100, rect!.y + 100);
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  await page.getByLabel("Ukuran label", { exact: true }).fill("16");
+  await page.getByLabel("Warna label", { exact: true }).fill("#223344");
+  await page.getByLabel("Teks tebal", { exact: true }).uncheck();
+  await page.getByLabel("Latar label", { exact: true }).check();
+  await page.getByLabel("Warna latar label", { exact: true }).fill("#eeeeee");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.mouse.click(10, 400);
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  const label = page.locator(".map-labels span").first();
+  await expect(label).toHaveCSS("font-size", "16px");
+  await expect(label).toHaveCSS("color", "rgb(34, 51, 68)");
+  await expect(label).toHaveCSS("font-weight", "400");
+  await expect(label).toHaveCSS("background-color", "rgb(238, 238, 238)");
+  await page.getByRole("button", { name: "Tentang data", exact: true }).click();
+  await page.mouse.click(10, 400);
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .focus();
+  await expect(
+    page.getByRole("textbox", { name: "Cari nama atau kode wilayah" }),
+  ).toHaveCSS("outline-style", "none");
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page
+    .getByRole("button", { name: "Pengaturan peta", exact: true })
+    .click();
+  const mobileBody = await body.boundingBox();
+  await page.mouse.move(mobileBody!.x + 40, mobileBody!.y + 80);
+  await page.mouse.wheel(0, -2000);
+  await page.mouse.wheel(0, 450);
+  await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  await page.screenshot({ path: "test-results/settings-mobile.png" });
 });
