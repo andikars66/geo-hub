@@ -74,10 +74,12 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
     [selected, setSelected] = useState<string[]>([]),
     [notice, setNotice] = useState(""),
     [panel, setPanel] = useState<"layer" | "export" | "info" | null>(null),
-    [collapsed, setCollapsed] = useState(false),
-    [hit, setHit] = useState<string | null>(null),
     [opacity, setOpacity] = useState(0.23),
     [fitKey, setFitKey] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false),
+    [basemap, setBasemap] = useState(true),
+    [colorful, setColorful] = useState(false),
+    [color, setColor] = useState("#56936e");
   const dialog = useRef<HTMLDialogElement>(null),
     opener = useRef<HTMLElement | null>(null);
   const view = viewFromHash(hash, regions),
@@ -86,7 +88,6 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
     const f = () => {
       setHash(location.hash);
       setLimit(40);
-      setHit(null);
     };
     addEventListener("hashchange", f);
     return () => removeEventListener("hashchange", f);
@@ -114,20 +115,7 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
   function navigate(id: string, mode = view.mode, showLabels = view.labels) {
     location.hash = `/wilayah/${encodeURIComponent(id)}?batas=${mode}&label=${showLabels ? "1" : "0"}`;
     setQ("");
-    setCollapsed(false);
-  }
-  function select(r: Region) {
-    try {
-      const next = toggleSelection(selected, r, regions);
-      setSelected(next);
-      setNotice(
-        next.includes(r.id)
-          ? `${r.name} dipilih untuk ekspor.`
-          : "Pilihan dihapus.",
-      );
-    } catch (e) {
-      setNotice((e as Error).message);
-    }
+    setSearchOpen(false);
   }
   const results = q.trim()
     ? search(regions, q, scope ? active.id : undefined)
@@ -135,13 +123,19 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
   const modeOptions = levels.filter(
     (l) => levels.indexOf(l) >= levels.indexOf(active.level),
   );
-  const opened = hit ? regions[hit] : null;
   return (
     <>
-      <a className="skip" href="#directory">
-        Lewati ke direktori
+      <a
+        className="skip"
+        href="#search"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("search")?.focus();
+        }}
+      >
+        Lewati ke pencarian
       </a>
-      <header className="topbar">
+      <header className="explore-brand">
         <a className="brand" href={"#/wilayah/" + rootId}>
           <span className="brand-icon">
             <MapIcon size={24} />
@@ -150,260 +144,167 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
             GeoHub<small>LOMBOK TENGAH</small>
           </span>
         </a>
-        <div className="header-note">
-          Direktori & peta wilayah<span> Nusa Tenggara Barat</span>
-        </div>
-        <button className="quiet" onClick={() => setPanel("info")}>
-          <Info size={17} />
-          <span>Tentang data</span>
-        </button>
-        <button
-          className="primary export-top"
-          onClick={() => setPanel("export")}
-        >
-          <Download size={17} />
-          Ekspor peta{selected.length > 0 && <b>{selected.length}</b>}
-        </button>
       </header>
-      <div className={"workspace " + (collapsed ? "collapsed" : "")}>
-        <aside className="sidebar" id="directory" tabIndex={-1}>
-          <div className="sidebar-head">
-            <span className="eyebrow">JELAJAHI WILAYAH</span>
-            <button
-              className="mobile-toggle"
-              aria-label={collapsed ? "Buka direktori" : "Ringkas direktori"}
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              {collapsed ? (
-                <PanelLeftOpen size={20} />
-              ) : (
-                <PanelLeftClose size={20} />
-              )}
-            </button>
-          </div>
-          <div className="searchbox">
-            <Search size={18} />
-            <input
-              aria-label="Cari nama atau kode wilayah"
-              placeholder="Cari nama atau kode wilayah…"
-              name="wilayah"
-              autoComplete="off"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            {q && (
-              <button aria-label="Hapus pencarian" onClick={() => setQ("")}>
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <label className="check scope">
-            <input
-              type="checkbox"
-              checked={scope}
-              onChange={(e) => setScope(e.target.checked)}
-            />
-            Cari dalam wilayah ini
-          </label>
-          <nav className="breadcrumbs" aria-label="Hierarki wilayah">
-            {active.ancestors.map((id, i) => (
-              <span key={id}>
-                {i > 0 && <ChevronRight size={11} />}
-                <a
-                  href={`#/wilayah/${encodeURIComponent(id)}?batas=${view.mode}&label=${view.labels ? "1" : "0"}`}
-                  aria-current={id === active.id ? "page" : undefined}
-                >
-                  {regions[id].name}
-                </a>
-              </span>
-            ))}
-          </nav>
-          <div className="region-summary">
-            <span className="eyebrow">{labels[active.level]}</span>
-            <h1>{active.name}</h1>
-            <p className="code">{active.sourceCode}</p>
-            {active.qualityFlags.length > 0 && (
-              <div className="notice">
-                <strong>Perlu pemeriksaan data</strong>
-                <p>
-                  {active.qualityFlags.includes("ambiguous-source-id")
-                    ? "Satu kode dipakai beberapa nama. Ditampilkan sebagai kelompok ID sumber."
-                    : "Format kode sumber berbeda; belum dikoreksi."}
-                </p>
-                {active.aliases.map((a) => (
-                  <div key={a}>{a}</div>
-                ))}
-              </div>
-            )}
-            <button
-              className={
-                "select-button " +
-                (selected.includes(active.id) ? "selected" : "")
-              }
-              onClick={() => select(active)}
-            >
-              {selected.includes(active.id) ? (
-                <Check size={16} />
-              ) : (
-                <Download size={16} />
-              )}{" "}
-              {selected.includes(active.id)
-                ? "Terpilih untuk ekspor"
-                : "Pilih wilayah ini"}
-            </button>
-          </div>
-          <div className="list-caption">
-            <h2>
-              {q.trim()
-                ? "Hasil pencarian"
-                : active.childIds.length
-                  ? `Daftar ${labels[regions[active.childIds[0]].level].toLowerCase()}`
-                  : "Wilayah terakhir"}
-            </h2>
-            <span>{new Intl.NumberFormat("id").format(results.length)}</span>
-          </div>
-          <div className="region-list">
+      <main
+        className="explore-map"
+        aria-label="Peta interaktif"
+        onPointerDown={() => setSearchOpen(false)}
+      >
+        <Suspense fallback={<p className="loading">Memuat peta…</p>}>
+          <MapView
+            key={fitKey}
+            regions={regions}
+            active={active}
+            mode={view.mode}
+            labels={view.labels}
+            opacity={opacity}
+            selected={[]}
+            tiles={tiles}
+            basemap={basemap}
+            colorful={colorful}
+            color={color}
+            onHit={(id) => navigate(id)}
+          />
+        </Suspense>
+      </main>
+      <section className="explore-search" aria-label="Pencarian wilayah">
+        <div className="searchbox">
+          <Search size={20} />
+          <input
+            id="search"
+            aria-label="Cari nama atau kode wilayah"
+            placeholder="Mau lihat wilayah mana?"
+            autoComplete="off"
+            value={q}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSearchOpen(false);
+            }}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setSearchOpen(true);
+            }}
+          />
+          <button
+            aria-label="Reset pencarian"
+            onClick={() => {
+              setQ("");
+              setSearchOpen(false);
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        {searchOpen && (
+          <div className="search-results">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={scope}
+                onChange={(e) => setScope(e.target.checked)}
+              />
+              Dalam {active.name}
+            </label>
+            <div className="list-caption">
+              <h2>{q ? "Hasil pencarian" : "Jelajahi wilayah di bawahnya"}</h2>
+              <span>{results.length}</span>
+            </div>
             {results.slice(0, limit).map((r) => (
-              <div className="region-row" key={r.id}>
-                <button className="region-link" onClick={() => navigate(r.id)}>
-                  <span className="region-name">
+              <button
+                className="search-result"
+                key={r.id}
+                onClick={() => navigate(r.id)}
+              >
+                <span>
+                  <strong>
                     {r.name}
-                    {r.qualityFlags.length > 0 && (
-                      <span
-                        className="flag"
-                        aria-label="Data perlu pemeriksaan"
-                      >
-                        !
-                      </span>
-                    )}
-                    <small>
-                      {q.trim()
-                        ? `${labels[r.level]} · ${r.path}`
-                        : r.sourceCode}
-                    </small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
-                <button
-                  className={
-                    "pick " + (selected.includes(r.id) ? "is-picked" : "")
-                  }
-                  aria-label={`${selected.includes(r.id) ? "Hapus pilihan" : "Pilih"} ${r.name}`}
-                  aria-pressed={selected.includes(r.id)}
-                  onClick={() => select(r)}
-                >
-                  {selected.includes(r.id) ? (
-                    <Check size={16} />
-                  ) : (
-                    <span>+</span>
-                  )}
-                </button>
-              </div>
+                    {r.qualityFlags.length > 0 ? " ⚠" : ""}
+                  </strong>
+                  <small>
+                    {labels[r.level]} · {r.path}
+                  </small>
+                </span>
+                <ChevronRight size={16} />
+              </button>
             ))}
             {!results.length && (
-              <div className="empty">
-                <MapIcon size={28} />
-                <p>
-                  {q
-                    ? "Tidak ada wilayah yang cocok. Coba nama lain atau perluas cakupan."
-                    : "Wilayah ini tidak memiliki pembagian lebih lanjut."}
-                </p>
-              </div>
+              <p className="empty">
+                {q
+                  ? "Tidak ada wilayah yang cocok. Coba nama atau kode lain."
+                  : "Tidak ada pembagian wilayah lebih lanjut."}
+              </p>
             )}
             {results.length > limit && (
-              <button
-                className="load-more"
-                onClick={() => setLimit((n) => n + 40)}
-              >
-                Tampilkan 40 berikutnya
+              <button onClick={() => setLimit((n) => n + 40)}>
+                Tampilkan berikutnya
               </button>
             )}
           </div>
-          <footer className="sidebar-foot">
-            <span className="live-dot" />
-            Data batas SLS · WGS84
-            <small>Hitungan mengikuti ID sumber, termasuk entri ambigu.</small>
-          </footer>
-        </aside>
-        <main className="map-area" aria-label="Peta interaktif">
-          <div className="map-toolbar">
-            <span className="context-chip">
-              <span className="live-dot" />
-              {labels[active.level]} · {active.name}
-            </span>
-            <div>
-              <button
-                onClick={() => setFitKey((n) => n + 1)}
-                aria-label="Sesuaikan peta ke wilayah aktif"
-              >
-                <LocateFixed size={18} />
-              </button>
-              <button onClick={() => setPanel("layer")}>
-                <Layers size={17} />
-                Layer
-              </button>
-            </div>
-          </div>
-          <Suspense
-            fallback={
-              <div role="status" className="map-loading">
-                Memuat mesin peta…
-              </div>
-            }
-          >
-            <MapView
-              key={fitKey}
-              regions={regions}
-              active={active}
-              mode={view.mode}
-              labels={view.labels}
-              opacity={opacity}
-              selected={selected}
-              tiles={tiles}
-              onHit={setHit}
-            />
-          </Suspense>
-          <div className="map-legend">
-            <strong>
-              <span />
-              Batas{" "}
-              {view.mode === "auto"
-                ? "otomatis"
-                : labels[view.mode as keyof typeof labels]}
-            </strong>
-            <span>Outline gelap: wilayah aktif</span>
-            {selected.length > 0 && (
-              <button onClick={() => setPanel("export")}>
-                {selected.length} wilayah terpilih <ArrowUpRight size={14} />
-              </button>
-            )}
-          </div>
-          {opened && (
-            <section className="feature-card" aria-label="Wilayah pada peta">
-              <button
-                className="card-close"
-                aria-label="Tutup detail wilayah"
-                onClick={() => setHit(null)}
-              >
-                <X size={16} />
-              </button>
-              <span className="eyebrow">{labels[opened.level]}</span>
-              <h2>{opened.name}</h2>
-              <p className="code">{opened.sourceCode}</p>
-              <div>
-                <button className="primary" onClick={() => navigate(opened.id)}>
-                  Buka wilayah
-                </button>
-                <button onClick={() => select(opened)}>
-                  {selected.includes(opened.id)
-                    ? "Hapus pilihan"
-                    : "Pilih untuk ekspor"}
-                </button>
-              </div>
-            </section>
-          )}
-        </main>
+        )}
+      </section>
+      <div className="explore-actions">
+        <button aria-label="Pengaturan peta" onClick={() => setPanel("layer")}>
+          <Layers size={20} />
+        </button>
+        <button
+          aria-label="Sesuaikan peta ke wilayah aktif"
+          onClick={() => setFitKey((n) => n + 1)}
+        >
+          <LocateFixed size={20} />
+        </button>
+        <button aria-label="Tentang data" onClick={() => setPanel("info")}>
+          <Info size={20} />
+        </button>
       </div>
+      <section className="context-panel" aria-label="Wilayah aktif">
+        <nav className="breadcrumbs" aria-label="Hierarki wilayah">
+          {active.ancestors.map((id, i) => (
+            <span key={id}>
+              {i > 0 && <ChevronRight size={12} />}
+              <a
+                href={`#/wilayah/${encodeURIComponent(id)}`}
+                aria-current={id === active.id ? "page" : undefined}
+              >
+                {regions[id].name}
+              </a>
+            </span>
+          ))}
+        </nav>
+        <div className="context-main">
+          <div>
+            <span className="eyebrow">{labels[active.level]}</span>
+            <h1>{active.name}</h1>
+            <span className="code">{active.sourceCode}</span>
+          </div>
+          <button onClick={() => setSearchOpen(!searchOpen)}>
+            {active.childIds.length} wilayah <ChevronRight size={16} />
+          </button>
+        </div>
+        {active.qualityFlags.length > 0 && (
+          <details className="notice">
+            <summary>Data perlu pemeriksaan</summary>
+            <p>
+              {active.qualityFlags.includes("ambiguous-source-id")
+                ? "Satu kode dipakai beberapa nama. Kelompok sumber dipertahankan."
+                : "Format kode desa berbeda dari entri lain."}
+            </p>
+            {active.aliases.join(" · ")}
+          </details>
+        )}
+        <div className="context-footer">
+          <span>Klik batas untuk menjelajah lebih dalam</span>
+          <button
+            aria-label="Unduh peta wilayah aktif"
+            onClick={() => {
+              setSelected([active.id]);
+              setPanel("export");
+            }}
+          >
+            <Download size={14} />
+            Unduh
+          </button>
+        </div>
+      </section>
       {notice && (
         <div className="toast" role="status">
           {notice}
@@ -481,13 +382,33 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
               </label>
               <label>
                 Peta dasar
-                <select value="none" onChange={() => {}}>
-                  <option value="none">Kanvas bersih · tanpa basemap</option>
+                <select
+                  value={basemap ? "osm" : "none"}
+                  onChange={(e) => setBasemap(e.target.value === "osm")}
+                >
+                  <option value="osm">OpenStreetMap</option>
+                  <option value="none">Kanvas bersih</option>
                 </select>
               </label>
-              <p className="notice">
-                Basemap jalan dan Google Maps belum diaktifkan. Peta batas dan
-                ekspor tetap berfungsi tanpa layanan berbayar.
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={colorful}
+                  onChange={(e) => setColorful(e.target.checked)}
+                />
+                Warna berbeda setiap wilayah
+              </label>
+              <label>
+                Warna batas dan isian
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                />
+              </label>
+              <p className="muted">
+                Peta dasar © OpenStreetMap contributors. Jika jaringan tidak
+                tersedia, batas wilayah tetap dapat digunakan.
               </p>
             </>
           )}

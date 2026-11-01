@@ -961,3 +961,242 @@ legend {
     right: 3px;
   }
 }
+.explore-map {
+  position: fixed;
+  inset: 0;
+}
+.explore-brand {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 3;
+  background: #ffffffed;
+  padding: 12px 15px;
+  border-radius: 10px;
+  box-shadow: 0 3px 15px #1232;
+}
+.explore-search {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, 45vw);
+  z-index: 5;
+}
+.explore-search .searchbox {
+  margin: 0;
+  background: white;
+  padding: 4px 15px;
+  box-shadow: 0 3px 20px #1232;
+}
+.explore-search input {
+  font-size: 15px;
+}
+.search-results {
+  background: white;
+  border: 1px solid #dce2db;
+  border-radius: 9px;
+  margin-top: 8px;
+  max-height: 55dvh;
+  overflow: auto;
+  box-shadow: 0 8px 30px #1232;
+}
+.search-results > .check {
+  padding: 8px 16px;
+  font-size: 12px;
+}
+.search-result {
+  display: flex;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #eee;
+  border-radius: 0;
+  text-align: left;
+  padding: 14px 18px;
+  justify-content: space-between;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 70px;
+}
+.search-result span {
+  min-width: 0;
+}
+.search-result small {
+  display: block;
+  font-size: 11px;
+  color: #526057;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.search-result strong {
+  font-size: 14px;
+}
+.explore-actions {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 4;
+  display: flex;
+  gap: 7px;
+}
+.context-panel {
+  position: fixed;
+  bottom: 35px;
+  left: 24px;
+  width: min(450px, calc(100vw - 48px));
+  z-index: 3;
+  background: #fffffff2;
+  border: 1px solid #dce2db;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px #1232;
+}
+.context-panel .breadcrumbs {
+  padding: 12px 18px;
+}
+.context-main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 18px;
+}
+.context-main h1 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.context-main > div {
+  min-width: 0;
+}
+.context-main button {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.context-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #edf0ea;
+  padding: 4px 12px 4px 18px;
+  gap: 8px;
+  font-size: 10px;
+  color: #526057;
+}
+.context-footer button {
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+.context-panel details {
+  margin: 0 16px 12px;
+  max-height: 120px;
+  overflow: auto;
+}
+.hover-card {
+  position: absolute;
+  top: 110px;
+  right: 24px;
+  background: white;
+  box-shadow: 0 5px 25px #1232;
+  border-radius: 9px;
+  padding: 18px;
+  width: 290px;
+  pointer-events: none;
+  z-index: 3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hover-card h2 {
+  font-size: 19px;
+  margin: 5px 0;
+}
+.hover-card ul {
+  padding-left: 18px;
+  margin: 7px 0;
+}
+.map-frame .maplibregl-ctrl-top-right {
+  top: 85px;
+  right: 15px;
+}
+.map-credit {
+  right: auto;
+  left: 0;
+}
+.map-error {
+  top: 95px;
+  max-width: 420px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+}
+.map-frame .maplibregl-ctrl-bottom-right {
+  bottom: 0;
+}
+.map-loading {
+  pointer-events: none;
+}
+@media (max-width: 899px) {
+  .explore-brand {
+    top: 12px;
+    left: 12px;
+    padding: 8px;
+  }
+  .explore-brand .brand {
+    font-size: 18px;
+  }
+  .explore-brand .brand-icon {
+    width: 31px;
+    height: 31px;
+  }
+  .explore-actions {
+    top: 12px;
+    right: 12px;
+  }
+  .explore-actions button {
+    padding: 8px;
+  }
+  .explore-search {
+    top: 82px;
+    width: calc(100vw - 24px);
+  }
+  .explore-search input {
+    font-size: 16px;
+  }
+  .context-panel {
+    bottom: 45px;
+    left: 12px;
+    width: calc(100vw - 24px);
+  }
+  .context-main {
+    padding: 10px 14px;
+  }
+  .context-main h1 {
+    font-size: 18px;
+  }
+  .context-footer > span {
+    font-size: 9px;
+  }
+  .context-panel .breadcrumbs {
+    padding: 8px 14px;
+    max-height: 70px;
+    overflow: auto;
+  }
+  .hover-card {
+    display: none;
+  }
+  .map-frame .maplibregl-ctrl-top-right {
+    top: 147px;
+    right: 3px;
+  }
+  .search-results {
+    max-height: 45dvh;
+  }
+  .context-panel details {
+    max-height: 80px;
+  }
+  .map-error {
+    top: 145px;
+    width: 80%;
+    left: 45%;
+  }
+}

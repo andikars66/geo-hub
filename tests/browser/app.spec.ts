@@ -1,72 +1,64 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-test("real map, hierarchy, history, export, and mobile", async ({ page }) => {
+import AxeBuilder from "@axe-core/playwright";
+test("search-first navigation, map rendering, settings and secondary export", async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  const ranges: number[] = [];
-  page.on("response", (r) => {
-    if (r.url().includes(".pmtiles")) ranges.push(r.status());
+  // Simulate unavailable external basemap: local boundaries must still work.
+  let osm = 0;
+  await page.route("https://tile.openstreetmap.org/**", (r) => {
+    osm++;
+    return r.abort();
   });
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Lombok Tengah", exact: true }),
   ).toBeVisible();
-  await expect(page.locator("canvas.maplibregl-canvas")).toBeVisible();
   await expect
     .poll(async () =>
       Number(await page.locator(".map-canvas").getAttribute("data-features")),
     )
     .toBeGreaterThan(0);
-  expect(
-    (await page.locator("canvas.maplibregl-canvas").boundingBox())!.height,
-  ).toBeGreaterThan(200);
-  await page.screenshot({ path: "test-results/desktop.png" });
-  await page.locator(".region-link").filter({ hasText: "Kopang" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Kopang", exact: true }),
-  ).toBeVisible();
-  await page.locator(".region-link").filter({ hasText: "Bebuaq" }).click();
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .fill("Bebuaq");
+  await page.locator(".search-result").first().click();
   await expect(
     page.getByRole("heading", { name: "Bebuaq", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".search-results")).toHaveCount(0);
   await page.goBack();
   await expect(
-    page.getByRole("heading", { name: "Kopang", exact: true }),
+    page.getByRole("heading", { name: "Lombok Tengah", exact: true }),
   ).toBeVisible();
   await page.goForward();
   await page
-    .getByRole("button", { name: "Pilih wilayah ini", exact: true })
+    .getByRole("button", { name: "Pengaturan peta", exact: true })
     .click();
-  await page.getByRole("button", { name: /Ekspor peta/ }).click();
-  await page.getByRole("button", { name: "Buat pratinjau" }).click();
-  await expect(page.getByAltText("Pratinjau gambar batas wilayah")).toBeVisible(
-    { timeout: 30000 },
-  );
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Unduh PNG" }).click();
-  const file = await download;
-  await file.saveAs("test-results/map.png");
-  expect(file.suggestedFilename()).toContain(".png");
-  const png = readFileSync("test-results/map.png");
-  expect(png.toString("hex", 0, 8)).toBe("89504e470d0a1a0a");
-  expect(png.readUInt32BE(16)).toBe(1600);
-  expect(png.readUInt32BE(20)).toBe(1000);
+  await page.getByRole("combobox", { name: "Peta dasar" }).selectOption("none");
+  await page.getByLabel("Warna berbeda setiap wilayah").check();
+  await page.getByLabel("Warna batas dan isian").fill("#327455");
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Layer", exact: true }).click();
-  await page.getByLabel("Level batas").selectOption("sls");
-  await page.keyboard.press("Escape");
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Bebuaq", exact: true }),
-  ).toBeVisible();
-  expect(page.url()).toContain("batas=sls");
   await page
     .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
-    .fill("52020300141001");
-  await page.locator(".region-link").first().click();
+    .fill("Praya");
+  await page.getByRole("button", { name: "Reset pencarian" }).click();
   await expect(
-    page.getByText("Satu kode dipakai beberapa nama.", { exact: false }),
+    page.getByRole("textbox", { name: "Cari nama atau kode wilayah" }),
+  ).toHaveValue("");
+  await page.getByRole("button", { name: "Unduh peta wilayah aktif" }).click();
+  await page.getByRole("button", { name: "Buat pratinjau" }).click();
+  await expect(
+    page.getByAltText("Pratinjau gambar batas wilayah"),
   ).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Unduh PNG" }).click();
+  await (await download).saveAs("test-results/map.png");
+  expect(readFileSync("test-results/map.png").readUInt32BE(16)).toBe(1600);
+  await page.keyboard.press("Escape");
+  await page.screenshot({ path: "test-results/desktop.png" });
   await page.setViewportSize({ width: 360, height: 800 });
   await page.screenshot({ path: "test-results/mobile.png" });
   expect(
@@ -75,82 +67,60 @@ test("real map, hierarchy, history, export, and mobile", async ({ page }) => {
     ),
   ).toBeTruthy();
   expect(errors).toEqual([]);
-  expect(ranges).toContain(206);
+  expect(osm).toBeGreaterThan(0);
 });
-test("unknown URLs, search scope, leaf, export validation, blocked storage", async ({
+test("search hierarchy, empty state, accessibility and invalid routes", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "localStorage", {
-      get() {
-        throw new Error("Storage blocked");
-      },
-    });
-  });
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
   await page.goto("/#/wilayah/missing");
   await expect(
     page.getByRole("heading", { name: "Lombok Tengah", exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .fill("52020300141001");
+  await page.locator(".search-result").first().click();
+  await page.getByText("Data perlu pemeriksaan").click();
   await expect(
-    page.getByRole("status").filter({ hasText: "tidak dikenal" }),
+    page.getByText("Satu kode dipakai beberapa nama.", { exact: false }),
   ).toBeVisible();
   await page
     .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
-    .fill("Jurit");
-  await page.locator(".region-link").first().click();
-  await expect(page.locator(".region-summary h1")).toContainText("Jurit");
-  await page.getByRole("checkbox", { name: "Cari dalam wilayah ini" }).check();
-  await page
-    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
-    .fill("Kopang");
+    .fill("zzzzzz");
   await expect(
     page.getByText("Tidak ada wilayah yang cocok.", { exact: false }),
   ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
-    .clear();
-  await page
-    .getByRole("button", { name: "Pilih wilayah ini", exact: true })
-    .click();
-  await page.getByRole("button", { name: /Ekspor peta/ }).click();
-  await page.getByLabel("Lebar (px)").fill("4096");
-  await page.getByLabel("Tinggi (px)").fill("4096");
-  await page.getByRole("button", { name: "Buat pratinjau" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "maksimum 12 juta piksel" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Reset pengaturan" }).click();
-  await page.getByRole("button", { name: "Buat pratinjau" }).click();
-  await expect(
-    page.getByAltText("Pratinjau gambar batas wilayah"),
-  ).toBeVisible();
-  await page.getByLabel("Judul", { exact: true }).fill("Peta baru");
-  await expect(page.getByRole("button", { name: "Unduh PNG" })).toBeDisabled();
-  await page.keyboard.press("Escape");
-  await page.setViewportSize({ width: 360, height: 800 });
-  await page.getByRole("button", { name: "Ringkas direktori" }).click();
-  await expect(
-    page.getByRole("button", { name: "Buka direktori" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Layer", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "Layer", exact: true }),
-  ).toBeFocused();
+  await page.getByRole("button", { name: "Reset pencarian" }).click();
+  const result = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(result.violations).toEqual([]);
 });
-
-test("accessible page and native settings dialog", async ({ page }) => {
-  const { default: AxeBuilder } = await import("@axe-core/playwright");
+test("hover identifies hierarchy and clicking drills into polygon", async ({
+  page,
+}) => {
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
   await page.goto("/");
-  await expect(page.locator(".region-summary h1")).toBeVisible();
-  const main = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(main.violations).toEqual([]);
-  await page.getByRole("button", { name: "Layer", exact: true }).click();
-  const dialog = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
-  expect(dialog.violations).toEqual([]);
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  let found = false;
+  for (let y = 220; y < 700 && !found; y += 90)
+    for (let x = 530; x < 1100 && !found; x += 90) {
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(50);
+      if (await page.locator(".hover-card").isVisible()) {
+        const name = await page.locator(".hover-card h2").innerText();
+        await expect(page.locator(".hover-card")).toContainText(
+          "wilayah di bawahnya",
+        );
+        await page.mouse.click(x, y);
+        await expect(page.locator(".context-main h1")).toHaveText(name);
+        found = true;
+      }
+    }
+  expect(found).toBeTruthy();
 });

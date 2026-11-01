@@ -41,7 +41,7 @@ Pipeline memeriksa CRS, geometri, keunikan fitur, parentage, nama konflik, dan k
 - Direktori kabupaten → kecamatan → desa → SLS → sub-SLS opsional.
 - Pencarian nama/kode, konteks induk, dan filter subtree.
 - Peta vector tiles, outline aktif, default batas anak, override level, label, dan transparansi.
-- Pilihan multi-wilayah pada level sama, dipertahankan lintas konteks.
+- Peta layar penuh; pencarian di tengah, hover hierarki, klik untuk membuka wilayah, ekspor sekunder dari wilayah aktif.
 - Ekspor PNG geometri detail dalam EPSG:32750: warna, ketebalan, label/kode, batas anak, judul, latar, ukuran, orientasi, legenda, skala dan utara grid. Pratinjau harus diperbarui setelah pengaturan berubah.
 - URL hash, Back/Forward, layout mobile, dialog native, dan kontrol keyboard.
 
@@ -53,7 +53,7 @@ Sebelum publikasi periksa kuota/batas file paket gratis terbaru, dukungan byte-r
 
 ## Batasan yang disengaja
 
-Basemap saat ini kanvas bersih. Google Maps resmi dan layanan tile jalan belum diintegrasikan; tidak ada endpoint Google tidak resmi. Ekspor tanpa basemap tetap berfungsi penuh. Label peta dibatasi untuk menghindari daftar besar; label ekspor memakai deteksi benturan. Font menggunakan stack sistem tanpa request eksternal. Tanggal pemutakhiran dan status resmi batas tidak disimpulkan dari nama berkas.
+Basemap default OpenStreetMap dengan opsi kanvas kosong. Google Maps belum diintegrasikan; tidak ada endpoint Google tidak resmi. Ekspor tanpa basemap tetap berfungsi penuh. Label peta dibatasi untuk menghindari daftar besar; label ekspor memakai deteksi benturan. Font menggunakan stack sistem tanpa request eksternal. Tanggal pemutakhiran dan status resmi batas tidak disimpulkan dari nama berkas.
 
 Lihat [PRD.md](PRD.md), [DESIGN.md](DESIGN.md), dan [AGENTS.md](AGENTS.md) untuk kontrak produk, anomali sumber, dan aturan kontribusi.
 
@@ -72,4 +72,12 @@ Tes produksi lokal dapat diulang setelah build:
 TEST_PRODUCTION=1 npm run test:e2e
 ```
 
-Audit otomatis ini bukan sertifikasi aksesibilitas penuh atau profil performa perangkat mobile fisik. Google Maps, provider basemap jalan, dan publikasi hosting belum dilakukan.
+Audit otomatis ini bukan sertifikasi aksesibilitas penuh atau profil performa perangkat mobile fisik. Google Maps dan publikasi hosting belum dilakukan.
+
+## Redesign eksplorasi
+
+Fokus utama kini pencarian dan melihat wilayah. Tidak ada sidebar kiri. Search di tengah menampilkan hasil berhierarki; klik hasil/poligon langsung membuka wilayah. Kartu konteks menyediakan breadcrumb dan daftar anak melalui pencarian. Hover desktop menampilkan nama, kode, jalur serta ringkasan anak; informasi konteks juga tersedia setelah tap di mobile.
+
+OpenStreetMap default memakai endpoint resmi `tile.openstreetmap.org` dengan atribusi dan tanpa prefetch/offline tile. Patuhi kebijakan tile OSM untuk deployment dan trafik besar; layanan publik tidak memberikan SLA. Pengaturan menyediakan kanvas kosong, batas, label, transparansi serta warna tunggal/berbeda tiap wilayah. Ekspor PNG tetap tersedia lewat tombol sekunder Unduh pada wilayah aktif.
+
+Tes redesign mencakup rendering, search/reset, Back/Forward, pengaturan warna, PNG, mobile, audit aksesibilitas, hover dan klik poligon. Kegagalan OSM sengaja disimulasikan untuk memverifikasi fallback; ini tidak membuktikan konektivitas tile eksternal pada seluruh jaringan pengguna.

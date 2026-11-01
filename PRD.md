@@ -1,5 +1,8 @@
 # GeoHub — Product Requirements
 
+> Keputusan redesign terbaru: fokus utama adalah mencari dan melihat hierarki wilayah. Peta layar penuh tanpa sidebar kiri; pencarian di tengah atas dengan hasil langsung di bawahnya dan tombol reset. Klik hasil atau poligon membuka wilayah; hover menampilkan nama, kode, jalur dan ringkasan anak. OpenStreetMap menjadi basemap default (atribusi wajib), dengan opsi kanvas kosong. Pengaturan mencakup level batas, label, transparansi, warna tunggal atau warna berbeda per wilayah. Ekspor adalah aksi sekunder pada kartu wilayah aktif; pemilihan banyak wilayah melalui direktori tidak lagi menjadi alur utama versi ini. Ketentuan ini menggantikan layout dan prioritas ekspor versi awal di bawah.
+
+
 Status: spesifikasi MVP yang disepakati. Bahasa antarmuka: Indonesia.
 
 ## Tujuan
