@@ -333,3 +333,70 @@ test("a failed outline from the previous region cannot leave a stale warning", a
     page.getByText("Outline wilayah gagal dimuat.", { exact: false }),
   ).toHaveCount(0);
 });
+test("one-off range failures recover automatically during zoom", async ({
+  page,
+}) => {
+  let failNext = true,
+    failures = 0;
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.route("**/*.pmtiles", (r) => {
+    if (failNext) {
+      failNext = false;
+      failures++;
+      return r.fulfill({ status: 503, body: "busy" });
+    }
+    return r.continue();
+  });
+  await page.goto("/");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  failNext = true;
+  for (let i = 0; i < 3; i++)
+    await page.getByRole("button", { name: "Perbesar", exact: true }).click();
+  await expect.poll(() => failures).toBe(2);
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
+  ).toHaveCount(0);
+});
+test("dismissed map alert stays closed during the same failing tile incident", async ({
+  page,
+}) => {
+  let failing = false,
+    failures = 0;
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.route("**/*.pmtiles", (r) => {
+    if (failing) {
+      failures++;
+      return r.fulfill({ status: 503, body: "busy" });
+    }
+    return r.continue();
+  });
+  await page.goto("/");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  failing = true;
+  for (let i = 0; i < 3; i++)
+    await page.getByRole("button", { name: "Perbesar", exact: true }).click();
+  await expect(
+    page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Tutup peringatan peta" }).click();
+  await expect(page.locator(".map-error")).toHaveCount(0);
+  const count = failures;
+  await page.getByRole("button", { name: "Perbesar", exact: true }).click();
+  await expect.poll(() => failures).toBeGreaterThan(count);
+  await page.waitForTimeout(1200);
+  await expect(page.locator(".map-error")).toHaveCount(0);
+  await expect(page.locator(".context-main h1")).toHaveText("Lombok Tengah");
+});

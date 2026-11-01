@@ -1379,3 +1379,19 @@ dialog[open] {
   padding: 6px 10px;
   font-size: 12px;
 }
+.map-error {
+  padding-right: 48px;
+}
+.map-error .map-error-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 8px;
+  background: transparent;
+  border: 0;
+}
+.map-error .map-error-close:hover {
+  background: #e9dfc8;
+}

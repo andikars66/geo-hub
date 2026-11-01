@@ -169,3 +169,5 @@ Pengujian lokal tidak sama dengan validasi hosting publik. Belum ada klaim profi
 ## Pemulihan error peta
 
 Error OSM, batas PMTiles, outline, dan tampilan dicatat terpisah. Abort bukan kegagalan pengguna. Event source/tile sukses hanya membersihkan kegagalan terkait, bukan seluruh peringatan. Outline memakai AbortController dan pemeriksaan konteks aktif sebelum memperbarui status. Tombol retry membangun ulang map pada konteks aktif dengan pembaca PMTiles baru untuk membuang cache header gagal. `vercel.json` menyediakan aturan cache Vercel terpisah dari `_headers`; keberhasilan HTTP Range pada hosting tetap perlu dibuktikan dengan respons aktual.
+
+Alert peta dapat ditutup lewat tombol berlabel. Penutupan menyembunyikan notifikasi untuk insiden sumber yang masih sama, tanpa mengubah data atau menyatakan request berhasil. Insiden baru setelah pemulihan atau retry dapat ditampilkan lagi. FetchSource PMTiles memiliki retry transport sementara yang dibatasi dua kali dan menghormati abort; validasi Range/ETag serta kegagalan permanen tetap berlaku.

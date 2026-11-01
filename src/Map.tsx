@@ -5,6 +5,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { levels, type Region, type Regions, displayed } from "./model";
 import type { LabelStyle } from "./mapStyle";
 import MapLabels from "./MapLabels";
+import { ResilientMapSource } from "./mapSource";
+import { X } from "lucide-react";
 let registered = false;
 const protocol = new Protocol();
 export default function MapView({
@@ -63,30 +65,37 @@ export default function MapView({
     map = useRef<MLMap>(null);
   const hit = useRef(onHit);
   hit.current = onHit;
+  const dismissed = useRef(new Set<string>());
   const [ready, setReady] = useState(false),
     [errors, setErrors] = useState<Record<string, string>>({}),
     [retry, setRetry] = useState(0);
   const setIssue = (source: string, message: string) =>
+    !dismissed.current.has(source) &&
     setErrors((previous) =>
       previous[source] === message
         ? previous
         : { ...previous, [source]: message },
     );
-  const clearIssue = (source: string) =>
+  const clearIssue = (source: string) => {
+    dismissed.current.delete(source);
     setErrors((previous) => {
       if (!previous[source]) return previous;
       const next = { ...previous };
       delete next[source];
       return next;
     });
+  };
   useEffect(() => {
     if (!registered) {
       maplibregl.addProtocol("pmtiles", protocol.tile);
       registered = true;
     }
     // A failed archive header can remain cached; retry must use a fresh reader.
-    protocol.add(new PMTiles(new URL(tiles, location.href).href));
+    protocol.add(
+      new PMTiles(new ResilientMapSource(new URL(tiles, location.href).href)),
+    );
     setReady(false);
+    dismissed.current.clear();
     setErrors({});
     const failedTiles = new Map<string, Set<string>>();
     const m = new maplibregl.Map({
@@ -422,6 +431,18 @@ export default function MapView({
       )}
       {Object.keys(errors).length > 0 && (
         <div className="map-error" role="alert">
+          <button
+            className="map-error-close"
+            aria-label="Tutup peringatan peta"
+            onClick={() => {
+              Object.keys(errors).forEach((source) =>
+                dismissed.current.add(source),
+              );
+              setErrors({});
+            }}
+          >
+            <X size={16} />
+          </button>
           {Object.entries(errors).map(([source, message]) => (
             <p key={source}>{message}</p>
           ))}

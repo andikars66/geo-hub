@@ -1,5 +1,6 @@
+import { ResilientMapSource } from "../src/mapSource";
 import { layoutLabels } from "../src/labelLayout";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   viewFromHash,
@@ -121,5 +122,79 @@ describe("adaptive screen-space labels", () => {
         200,
       ).map((x) => x.id),
     ).toEqual(["a", "c"]);
+  });
+});
+
+describe("temporary PMTiles transport failures", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+  it("retries temporary failures while preserving range and ETag", async () => {
+    vi.useFakeTimers();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
+      .mockResolvedValue(
+        new Response(new Uint8Array([1, 2, 3]), {
+          status: 206,
+          headers: { ETag: '"v1"' },
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const pending = new ResilientMapSource(
+      "https://example.test/map.pmtiles",
+    ).getBytes(10, 3, undefined, '"v1"');
+    await vi.advanceTimersByTimeAsync(200);
+    const result = await pending;
+    expect(new Uint8Array(result.data)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(result.etag).toBe('"v1"');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].headers.get("range")).toBe("bytes=10-12");
+  });
+  it("stops after two retries rather than looping", async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetch);
+    const pending = expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+      ),
+    ).rejects.toThrow("Failed to fetch");
+    await vi.advanceTimersByTimeAsync(800);
+    await pending;
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+  it("does not retry a missing file", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("missing", { status: 404 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+      ),
+    ).rejects.toThrow("404");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("cancels backoff when zoom/navigation aborts the request", async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetch);
+    const controller = new AbortController();
+    const pending = expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort();
+    await pending;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
