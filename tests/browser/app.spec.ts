@@ -242,15 +242,13 @@ test("right-drag cannot rotate or tilt the map while left-drag still pans", asyn
     .toBeGreaterThan(0);
   await page.waitForTimeout(650);
   const positions = () =>
-    page
-      .locator(".map-labels span")
-      .evaluateAll((es) =>
-        es.map((e) => ({
-          id: e.getAttribute("data-region-id"),
-          x: (e as HTMLElement).style.left,
-          y: (e as HTMLElement).style.top,
-        })),
-      );
+    page.locator(".map-labels span").evaluateAll((es) =>
+      es.map((e) => ({
+        id: e.getAttribute("data-region-id"),
+        x: (e as HTMLElement).style.left,
+        y: (e as HTMLElement).style.top,
+      })),
+    );
   const before = await positions();
   await page.mouse.move(1000, 500);
   await page.mouse.down({ button: "right" });
@@ -273,4 +271,65 @@ test("right-drag cannot rotate or tilt the map while left-drag still pans", asyn
   await expect(
     page.getByRole("button", { name: "Unduh peta wilayah aktif" }),
   ).toHaveCSS("outline-color", "rgb(22, 90, 67)");
+});
+test("map boundary request failure is identified and retry recovers", async ({
+  page,
+}) => {
+  let failing = true;
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.route("**/*.pmtiles", (r) =>
+    failing
+      ? r.fulfill({ status: 503, body: "Temporarily unavailable" })
+      : r.continue(),
+  );
+  await page.goto("/");
+  await expect(
+    page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
+  ).toBeVisible();
+  failing = false;
+  await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Lombok Tengah", exact: true }),
+  ).toBeVisible();
+});
+test("a failed outline from the previous region cannot leave a stale warning", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const wait = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.route("**/detail-overview.json", async (r) => {
+    await wait;
+    await r.fulfill({ status: 503, body: "Unavailable" }).catch(() => {});
+  });
+  await page.goto("/");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .fill("Kopang");
+  await page.locator(".search-result").first().click();
+  await expect(page.locator(".context-main h1")).toHaveText("Kopang");
+  release();
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText("Outline wilayah gagal dimuat.", { exact: false }),
+  ).toHaveCount(0);
 });

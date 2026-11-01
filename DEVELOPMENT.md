@@ -40,3 +40,11 @@ Untuk hosting statis, build dengan `npm ci && npm run build` lalu sajikan `dist`
 OpenStreetMap memakai endpoint resmi tanpa prefetch/offline tile. Patuhi kebijakan penyedia. Browser test mensimulasikan kegagalan OSM untuk memverifikasi batas lokal tetap berfungsi; pengujian lokal tidak membuktikan konektivitas pada semua jaringan atau kesiapan hosting publik.
 
 Baca PRD.md untuk cakupan produk, DESIGN.md untuk rancangan, dan AGENTS.md untuk aturan kontribusi.
+
+## Diagnosis pemuatan peta
+
+Vercel memakai `vercel.json` untuk header; `public/_headers` berlaku untuk penyedia yang mendukung format tersebut. Manifest harus direvalidasi, sementara aset dengan versi checksum dapat di-cache immutable. PMTiles disajikan sebagai binary tanpa rewrite ke HTML; server harus mendukung request Range dan respons 206. Konfigurasi header tidak dengan sendirinya membuktikan dukungan Range pada deployment.
+
+Pesan pemuatan dipisah antara OSM, batas PMTiles, outline wilayah, dan error tampilan. Console browser mencatat diagnostik dengan awalan `[GeoStamp map]` atau `[GeoStamp outline]`. Request outline dibatalkan ketika konteks berubah. Retry membuat pembaca PMTiles baru agar kegagalan header yang tersimpan dalam cache tidak mengunci pemuatan selanjutnya. Peringatan sumber/tile dihapus setelah event keberhasilan yang sesuai; mematikan OSM tidak menghapus error batas.
+
+Tes browser mensimulasikan PMTiles HTTP 503, pemulihan dengan retry, serta request outline wilayah lama yang gagal setelah navigasi. Hasil tersebut bukan bukti akar masalah jaringan pada deployment tertentu.

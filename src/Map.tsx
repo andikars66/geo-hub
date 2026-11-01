@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { type Map as MLMap } from "maplibre-gl";
-import { Protocol } from "pmtiles";
+import { PMTiles, Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { levels, type Region, type Regions, displayed } from "./model";
 import type { LabelStyle } from "./mapStyle";
 import MapLabels from "./MapLabels";
 let registered = false;
+const protocol = new Protocol();
 export default function MapView({
   regions,
   active,
@@ -63,14 +64,31 @@ export default function MapView({
   const hit = useRef(onHit);
   hit.current = onHit;
   const [ready, setReady] = useState(false),
-    [error, setError] = useState("");
+    [errors, setErrors] = useState<Record<string, string>>({}),
+    [retry, setRetry] = useState(0);
+  const setIssue = (source: string, message: string) =>
+    setErrors((previous) =>
+      previous[source] === message
+        ? previous
+        : { ...previous, [source]: message },
+    );
+  const clearIssue = (source: string) =>
+    setErrors((previous) => {
+      if (!previous[source]) return previous;
+      const next = { ...previous };
+      delete next[source];
+      return next;
+    });
   useEffect(() => {
     if (!registered) {
-      const protocol = new Protocol();
       maplibregl.addProtocol("pmtiles", protocol.tile);
       registered = true;
     }
+    // A failed archive header can remain cached; retry must use a fresh reader.
+    protocol.add(new PMTiles(new URL(tiles, location.href).href));
     setReady(false);
+    setErrors({});
+    const failedTiles = new Map<string, Set<string>>();
     const m = new maplibregl.Map({
       container: host.current!,
       style: {
@@ -160,7 +178,7 @@ export default function MapView({
       setReady(true);
     });
     m.on("idle", () => {
-      if (host.current)
+      if (host.current && m.getLayer("fill-kabupaten"))
         host.current.dataset.features = String(
           m.queryRenderedFeatures({ layers: levels.map((l) => "fill-" + l) })
             .length,
@@ -191,13 +209,45 @@ export default function MapView({
         hit.current(f.properties.id);
       }
     });
-    m.on("error", (e) => {
-      if ((e as any).sourceId === "osm") {
+    m.on("error", (event) => {
+      if (event.error?.name === "AbortError") return;
+      const e = event as typeof event & {
+        sourceId?: string;
+        tile?: { tileID?: { key?: string | number } };
+      };
+      const source = e.sourceId || "map";
+      const key = String(e.tile?.tileID?.key ?? "metadata");
+      if (!failedTiles.has(source)) failedTiles.set(source, new Set());
+      failedTiles.get(source)!.add(key);
+      console.warn("[GeoStamp map]", source, event.error);
+      if (source === "osm") {
         m.setLayoutProperty("osm", "visibility", "none");
-        setError(
+        setIssue(
+          source,
           "OpenStreetMap belum dapat dimuat. Batas wilayah tetap tersedia.",
         );
-      } else setError("Sebagian data peta gagal dimuat. Coba muat ulang.");
+      } else if (source === "boundaries")
+        setIssue(
+          source,
+          "Batas wilayah gagal dimuat. Periksa koneksi atau coba lagi.",
+        );
+      else if (source === "active")
+        setIssue("outline", "Outline wilayah gagal dimuat. Coba lagi.");
+      else setIssue(source, "Peta mengalami kendala tampilan. Coba lagi.");
+    });
+    m.on("sourcedata", (event) => {
+      const e = event as typeof event & {
+        sourceId?: string;
+        sourceDataType?: string;
+        tile?: { tileID?: { key?: string | number }; state?: string };
+      };
+      if (!e.sourceId) return;
+      const failed = failedTiles.get(e.sourceId);
+      if (!failed) return;
+      if (e.sourceDataType === "metadata") failed.delete("metadata");
+      if (e.tile?.state === "loaded") failed.delete(String(e.tile.tileID?.key));
+      if (!failed.size)
+        clearIssue(e.sourceId === "active" ? "outline" : e.sourceId);
     });
     const resize = new ResizeObserver(() => {
       m.resize();
@@ -222,7 +272,7 @@ export default function MapView({
       m.remove();
       map.current = null;
     };
-  }, [tiles]);
+  }, [tiles, retry]);
   useEffect(() => {
     if (!ready) return;
     const m = map.current!;
@@ -243,25 +293,31 @@ export default function MapView({
       },
     );
     let alive = true;
-    fetch(active.geometryRef)
+    const controller = new AbortController();
+    clearIssue("outline");
+    fetch(active.geometryRef, { signal: controller.signal })
       .then((r) => {
-        if (!r.ok) throw Error();
+        if (!r.ok) throw Error(`Outline HTTP ${r.status}`);
         return r.json();
       })
       .then((d) => {
-        if (alive)
-          (m.getSource("active") as maplibregl.GeoJSONSource)?.setData({
-            type: "FeatureCollection",
-            features: d.features.filter(
-              (f: any) => f.properties.id === active.id,
-            ),
-          });
+        if (!alive) return;
+        clearIssue("outline");
+        (m.getSource("active") as maplibregl.GeoJSONSource)?.setData({
+          type: "FeatureCollection",
+          features: d.features.filter(
+            (f: any) => f.properties.id === active.id,
+          ),
+        });
       })
-      .catch(() =>
-        setError("Outline gagal dimuat. Coba buka kembali wilayah."),
-      );
+      .catch((error) => {
+        if (!alive || error.name === "AbortError") return;
+        console.warn("[GeoStamp outline]", error);
+        setIssue("outline", "Outline wilayah gagal dimuat. Coba lagi.");
+      });
     return () => {
       alive = false;
+      controller.abort();
     };
   }, [active, ready]);
   const visible = useMemo(
@@ -272,7 +328,7 @@ export default function MapView({
     if (!ready) return;
     const m = map.current!;
     m.setLayoutProperty("osm", "visibility", basemap ? "visible" : "none");
-    if (!basemap) setError("");
+    if (!basemap) clearIssue("osm");
     const palette = [
       "#71a6c8",
       "#bda1d2",
@@ -364,9 +420,12 @@ export default function MapView({
           Menyiapkan peta…
         </div>
       )}
-      {error && (
+      {Object.keys(errors).length > 0 && (
         <div className="map-error" role="alert">
-          {error}
+          {Object.entries(errors).map(([source, message]) => (
+            <p key={source}>{message}</p>
+          ))}
+          <button onClick={() => setRetry((v) => v + 1)}>Coba lagi</button>
         </div>
       )}
       {labels && ready && map.current && (

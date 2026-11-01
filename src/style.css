@@ -1371,3 +1371,11 @@ dialog[open] {
     font-size: 16px;
   }
 }
+.map-error p {
+  margin: 0 0 8px;
+}
+.map-error button {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
