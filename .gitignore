@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.venv/
+.cache/
+test-results/
+playwright-report/
+*.tsbuildinfo
