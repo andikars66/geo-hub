@@ -1395,3 +1395,122 @@ dialog[open] {
 .map-error .map-error-close:hover {
   background: #e9dfc8;
 }
+/* Region context belongs to the search stack on every screen size. */
+.explore-search .context-panel {
+  position: static;
+  inset: auto;
+  width: 100%;
+  max-height: none;
+  margin-top: 8px;
+  overflow: visible;
+  border-radius: 8px;
+  background: #fffffff5;
+  box-shadow: 0 3px 14px #1231;
+}
+.explore-search .context-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  grid-template-columns: none;
+}
+.explore-search .context-main .breadcrumbs {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  gap: 4px 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: none;
+}
+.explore-search .breadcrumbs > span {
+  min-width: 0;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.explore-search .context-main h1 {
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  margin: 0;
+  color: #165a43;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.explore-search .breadcrumbs a {
+  overflow-wrap: anywhere;
+}
+.explore-search .child-count {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  font-size: 11px;
+  border: 0;
+  background: #f1f5f0;
+  white-space: nowrap;
+  gap: 4px;
+}
+.explore-search .context-panel details {
+  margin: 0 12px 10px;
+}
+.explore-search .search-results {
+  max-height: calc(100dvh - 200px);
+}
+@media (max-width: 899px) {
+  .explore-actions {
+    gap: 4px;
+  }
+  .explore-actions button {
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+  }
+  .explore-search .search-results {
+    max-height: calc(100dvh - 270px);
+  }
+  .explore-search .context-main {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  .explore-search .context-main .breadcrumbs,
+  .explore-search .context-main h1 {
+    font-size: 11px;
+  }
+}
+@media (max-width: 380px) {
+  .explore-brand .brand-icon {
+    display: none;
+  }
+}
+/* Keep source warnings clear of the search/context stack. */
+.map-error {
+  top: auto;
+  bottom: 58px;
+  left: auto;
+  right: 24px;
+  transform: none;
+  width: min(420px, calc(100vw - 48px));
+}
+@media (max-width: 899px) {
+  .map-error {
+    top: auto;
+    bottom: 56px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-width: none;
+  }
+}
+@media (max-width: 380px) {
+  .explore-brand .brand small {
+    letter-spacing: 1px;
+  }
+}
+@media (max-width: 899px) {
+  .map-frame .maplibregl-ctrl-top-right {
+    top: var(--map-controls-top, 220px);
+  }
+}

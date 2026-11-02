@@ -6,10 +6,6 @@ import {
   Layers,
   Download,
   ChevronRight,
-  ArrowUpRight,
-  Check,
-  PanelLeftClose,
-  PanelLeftOpen,
   Info,
   X,
   LocateFixed,
@@ -20,9 +16,7 @@ import {
   rootId,
   viewFromHash,
   search,
-  toggleSelection,
   type Regions,
-  type Region,
 } from "./model";
 import "./style.css";
 import { defaultLabelStyle } from "./mapStyle";
@@ -84,6 +78,24 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
   const [lineColor, setLineColor] = useState("#285c43"),
     [lineWidth, setLineWidth] = useState(2),
     [labelStyle, setLabelStyle] = useState(defaultLabelStyle);
+  const contextRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!contextRef.current) return;
+    const update = () =>
+      document.documentElement.style.setProperty(
+        "--map-controls-top",
+        `${Math.ceil(contextRef.current!.getBoundingClientRect().bottom + 12)}px`,
+      );
+    const observer = new ResizeObserver(update);
+    observer.observe(contextRef.current);
+    window.addEventListener("resize", update);
+    update();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      document.documentElement.style.removeProperty("--map-controls-top");
+    };
+  }, []);
   const backdropDown = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null),
     opener = useRef<HTMLElement | null>(null);
@@ -203,6 +215,52 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
             <X size={18} />
           </button>
         </div>
+
+        <section
+          ref={contextRef}
+          className="context-panel"
+          aria-label="Wilayah aktif"
+        >
+          <div className="context-main">
+            <nav className="breadcrumbs" aria-label="Hierarki wilayah">
+              {active.ancestors.map((id, i) => (
+                <span key={id}>
+                  {i > 0 && <ChevronRight size={12} aria-hidden="true" />}
+                  {id === active.id ? (
+                    <h1 aria-current="page">{regions[id].name}</h1>
+                  ) : (
+                    <a href={`#/wilayah/${encodeURIComponent(id)}`}>
+                      {regions[id].name}
+                    </a>
+                  )}
+                </span>
+              ))}
+            </nav>
+            <button
+              className="child-count"
+              aria-label={`Lihat ${active.childIds.length} wilayah di bawahnya`}
+              aria-expanded={searchOpen}
+              onClick={() => {
+                setQ("");
+                setSearchOpen(!searchOpen);
+              }}
+            >
+              {active.childIds.length} wilayah
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          {active.qualityFlags.length > 0 && (
+            <details className="notice">
+              <summary>Data perlu pemeriksaan</summary>
+              <p>
+                {active.qualityFlags.includes("ambiguous-source-id")
+                  ? "Satu kode dipakai beberapa nama. Kelompok sumber dipertahankan."
+                  : "Format kode desa berbeda dari entri lain."}
+              </p>
+              {active.aliases.join(" · ")}
+            </details>
+          )}
+        </section>
         {searchOpen && (
           <div className="search-results">
             <label className="check">
@@ -250,70 +308,39 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
           </div>
         )}
       </section>
-      <div className="explore-actions">
-        <button aria-label="Pengaturan peta" onClick={() => setPanel("layer")}>
+      <div className="explore-actions" role="group" aria-label="Kontrol peta">
+        <button
+          aria-label="Unduh peta wilayah aktif"
+          title="Unduh peta"
+          onClick={() => {
+            setSelected([active.id]);
+            setPanel("export");
+          }}
+        >
+          <Download size={20} />
+        </button>
+        <button
+          title="Pengaturan layer"
+          aria-label="Pengaturan peta"
+          onClick={() => setPanel("layer")}
+        >
           <Layers size={20} />
         </button>
         <button
+          title="Pusatkan peta"
           aria-label="Sesuaikan peta ke wilayah aktif"
           onClick={() => setFitKey((n) => n + 1)}
         >
           <LocateFixed size={20} />
         </button>
-        <button aria-label="Tentang data" onClick={() => setPanel("info")}>
+        <button
+          title="Tentang data"
+          aria-label="Tentang data"
+          onClick={() => setPanel("info")}
+        >
           <Info size={20} />
         </button>
       </div>
-      <section className="context-panel" aria-label="Wilayah aktif">
-        {active.ancestors.length > 1 && (
-          <nav className="breadcrumbs" aria-label="Hierarki wilayah">
-            {active.ancestors.slice(0, -1).map((id, i) => (
-              <span key={id}>
-                {i > 0 && <ChevronRight size={12} />}
-                <a
-                  href={`#/wilayah/${encodeURIComponent(id)}`}
-                  aria-current={id === active.id ? "page" : undefined}
-                >
-                  {regions[id].name}
-                </a>
-              </span>
-            ))}
-          </nav>
-        )}
-        <div className="context-main">
-          <div>
-            <span className="eyebrow">{labels[active.level]}</span>
-            <h1>{active.name}</h1>
-            <span className="code">{active.sourceCode}</span>
-          </div>
-          <div className="context-actions">
-            {" "}
-            <button onClick={() => setSearchOpen(!searchOpen)}>
-              {active.childIds.length} wilayah <ChevronRight size={16} />
-            </button>
-            <button
-              aria-label="Unduh peta wilayah aktif"
-              onClick={() => {
-                setSelected([active.id]);
-                setPanel("export");
-              }}
-            >
-              <Download size={14} />
-            </button>
-          </div>
-        </div>
-        {active.qualityFlags.length > 0 && (
-          <details className="notice">
-            <summary>Data perlu pemeriksaan</summary>
-            <p>
-              {active.qualityFlags.includes("ambiguous-source-id")
-                ? "Satu kode dipakai beberapa nama. Kelompok sumber dipertahankan."
-                : "Format kode desa berbeda dari entri lain."}
-            </p>
-            {active.aliases.join(" · ")}
-          </details>
-        )}
-      </section>
       {notice && (
         <div className="toast" role="status">
           {notice}

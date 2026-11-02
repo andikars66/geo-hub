@@ -136,10 +136,10 @@ test("map style controls, wheel scrolling, backdrop dismissal and search focus",
   await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
   await page.goto("/");
   await expect(page.locator(".context-main h1")).toBeVisible();
-  const logo = await page.locator(".explore-brand").boundingBox(),
+  const search = await page.locator(".searchbox").boundingBox(),
     context = await page.locator(".context-panel").boundingBox();
-  expect(context!.y).toBeGreaterThan(logo!.y + logo!.height);
-  expect(context!.y).toBeLessThan(150);
+  expect(context!.y).toBeGreaterThan(search!.y + search!.height);
+  expect(Math.abs(context!.x - search!.x)).toBeLessThan(2);
   await page
     .getByRole("button", { name: "Pengaturan peta", exact: true })
     .click();
@@ -440,4 +440,70 @@ test("HTTP 200 without byte serving still renders boundaries through one full do
     page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
   ).toHaveCount(0);
   expect(full).toBe(1);
+});
+test("context follows search with full hierarchy and download lives in map controls", async ({
+  page,
+}) => {
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.goto("/");
+  await expect(page.locator(".context-main h1")).toHaveText("Lombok Tengah");
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .fill("Aik Dareq");
+  await page.locator(".search-result").first().click();
+  await expect(page.locator(".context-main h1")).toHaveText("Aik Dareq");
+  const breadcrumb = page.getByRole("navigation", { name: "Hierarki wilayah" });
+  await expect(breadcrumb).toContainText("Lombok Tengah");
+  await expect(breadcrumb).toContainText("Batukliang");
+  await expect(breadcrumb).toContainText("Aik Dareq");
+  await expect(
+    page
+      .locator(".context-panel")
+      .getByRole("button", { name: "Unduh peta wilayah aktif" }),
+  ).toHaveCount(0);
+  const controls = page.getByRole("group", { name: "Kontrol peta" });
+  await expect(controls.getByRole("button")).toHaveCount(4);
+  await expect(controls.locator("svg")).toHaveCount(4);
+  await controls
+    .getByRole("button", { name: "Unduh peta wilayah aktif" })
+    .click();
+  await expect(page.getByRole("dialog", { name: "Ekspor peta" })).toBeVisible();
+  await expect(page.locator(".selection-list")).toContainText("Aik Dareq");
+  await page.keyboard.press("Escape");
+  await page.locator(".child-count").click();
+  await expect(page.locator(".search-result").first()).toBeVisible();
+  await page.getByRole("button", { name: "Reset pencarian" }).click();
+  await breadcrumb
+    .getByRole("link", { name: "Batukliang", exact: true })
+    .click();
+  await expect(page.locator(".context-main h1")).toHaveText("Batukliang");
+  for (const width of [1440, 360, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    const search = await page.locator(".searchbox").boundingBox(),
+      context = await page.locator(".context-panel").boundingBox();
+    expect(context!.y).toBeGreaterThanOrEqual(search!.y + search!.height);
+    expect(Math.abs(context!.x - search!.x)).toBeLessThan(2);
+    const toolbar = await controls.boundingBox(),
+      brand = await page.locator(".explore-brand").boundingBox();
+    expect(toolbar!.x).toBeGreaterThanOrEqual(brand!.x + brand!.width);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (width < 900)
+      await expect
+        .poll(async () => {
+          const c = await page
+            .locator(".maplibregl-ctrl-top-right")
+            .boundingBox();
+          return c!.y;
+        })
+        .toBeGreaterThan(context!.y + context!.height);
+    if (width === 1440)
+      await page.screenshot({
+        path: "test-results/context-toolbar-desktop.png",
+      });
+  }
+  await page.screenshot({ path: "test-results/context-toolbar-mobile.png" });
 });
