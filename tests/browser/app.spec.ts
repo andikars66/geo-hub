@@ -400,3 +400,44 @@ test("dismissed map alert stays closed during the same failing tile incident", a
   await expect(page.locator(".map-error")).toHaveCount(0);
   await expect(page.locator(".context-main h1")).toHaveText("Lombok Tengah");
 });
+test("HTTP 200 without byte serving still renders boundaries through one full download", async ({
+  page,
+}) => {
+  const { readFile } = await import("node:fs/promises");
+  const manifest = JSON.parse(
+    await readFile("public/data/manifest.json", "utf8"),
+  );
+  const archive = await readFile("public" + manifest.tiles);
+  let full = 0;
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.route("**/*.pmtiles", async (r) => {
+    if (!r.request().headers()["range"]) full++;
+    await r.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      body: archive,
+    });
+  });
+  await page.goto("/");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  for (let i = 0; i < 3; i++)
+    await page.getByRole("button", { name: "Perbesar", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Cari nama atau kode wilayah" })
+    .fill("Bebuaq");
+  await page.locator(".search-result").first().click();
+  await expect(page.locator(".context-main h1")).toHaveText("Bebuaq");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByText("Batas wilayah gagal dimuat.", { exact: false }),
+  ).toHaveCount(0);
+  expect(full).toBe(1);
+});

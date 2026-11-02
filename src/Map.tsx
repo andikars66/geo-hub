@@ -91,9 +91,10 @@ export default function MapView({
       registered = true;
     }
     // A failed archive header can remain cached; retry must use a fresh reader.
-    protocol.add(
-      new PMTiles(new ResilientMapSource(new URL(tiles, location.href).href)),
+    const archiveSource = new ResilientMapSource(
+      new URL(tiles, location.href).href,
     );
+    protocol.add(new PMTiles(archiveSource));
     setReady(false);
     dismissed.current.clear();
     setErrors({});
@@ -278,6 +279,7 @@ export default function MapView({
     resize.observe(host.current!);
     return () => {
       resize.disconnect();
+      archiveSource.dispose();
       m.remove();
       map.current = null;
     };

@@ -1,3 +1,4 @@
+import { EtagMismatch } from "pmtiles";
 import { ResilientMapSource } from "../src/mapSource";
 import { layoutLabels } from "../src/labelLayout";
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -138,7 +139,7 @@ describe("temporary PMTiles transport failures", () => {
       .mockResolvedValue(
         new Response(new Uint8Array([1, 2, 3]), {
           status: 206,
-          headers: { ETag: '"v1"' },
+          headers: { ETag: '"v1"', "Content-Range": "bytes 10-12/100" },
         }),
       );
     vi.stubGlobal("fetch", fetch);
@@ -196,5 +197,176 @@ describe("temporary PMTiles transport failures", () => {
     await pending;
     await vi.advanceTimersByTimeAsync(1000);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("PMTiles full-archive fallback", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+  const bytes = () => {
+    const b = new Uint8Array(100);
+    b.set(new TextEncoder().encode("PMTiles"));
+    b.set([7, 8, 9], 20);
+    return b;
+  };
+  it("shares a full GET after HTTP 200 ignores Range, with or without Content-Length", async () => {
+    for (const lengthHeader of [true, false]) {
+      let full = 0;
+      const fetch = vi.fn(async (_url, options) => {
+        if (!options.headers.has("Range")) full++;
+        return new Response(bytes(), {
+          status: 200,
+          headers: {
+            ETag: '"v1"',
+            ...(lengthHeader ? { "Content-Length": "100" } : {}),
+          },
+        });
+      });
+      vi.stubGlobal("fetch", fetch);
+      const source = new ResilientMapSource("https://example.test/map.pmtiles");
+      const [a, b] = await Promise.all([
+        source.getBytes(20, 3),
+        source.getBytes(0, 7),
+      ]);
+      expect([...new Uint8Array(a.data)]).toEqual([7, 8, 9]);
+      expect(new TextDecoder().decode(b.data)).toBe("PMTiles");
+      await source.getBytes(20, 3);
+      expect(full).toBe(1);
+      expect(a.etag).toBe('"v1"');
+      source.dispose();
+    }
+  });
+  it("does not accept an HTML application fallback as an archive", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response("<html>wrong rewrite</html>", { status: 200 }),
+      ),
+    );
+    await expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+      ),
+    ).rejects.toThrow("not a PMTiles archive");
+  });
+  it("preserves ETag mismatch detection when switching to a full snapshot", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(bytes(), { status: 200, headers: { ETag: '"new"' } }),
+      ),
+    );
+    const source = new ResilientMapSource("https://example.test/map.pmtiles");
+    await expect(
+      source.getBytes(20, 3, undefined, '"old"'),
+    ).rejects.toBeInstanceOf(EtagMismatch);
+    expect(new TextDecoder().decode((await source.getBytes(0, 7)).data)).toBe(
+      "PMTiles",
+    );
+    source.dispose();
+  });
+  it("cancelling one tile does not cancel the shared full download", async () => {
+    let finish!: (r: Response) => void;
+    let full = 0;
+    const pending = new Promise<Response>((resolve) => {
+      finish = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url, options) => {
+        if (options.headers.has("Range"))
+          return new Response(bytes(), { status: 200 });
+        full++;
+        return pending;
+      }),
+    );
+    const source = new ResilientMapSource("https://example.test/map.pmtiles"),
+      controller = new AbortController();
+    const cancelled = expect(
+      source.getBytes(20, 3, controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    await vi.waitFor(() => expect(full).toBe(1));
+    const second = source.getBytes(20, 3);
+    controller.abort();
+    await cancelled;
+    finish(new Response(bytes(), { status: 200 }));
+    expect([...new Uint8Array((await second).data)]).toEqual([7, 8, 9]);
+    expect(full).toBe(1);
+    source.dispose();
+  });
+  it("rejects a mismatched Content-Range instead of decoding wrong bytes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(new Uint8Array([1, 2, 3]), {
+            status: 206,
+            headers: { "Content-Range": "bytes 0-2/100" },
+          }),
+      ),
+    );
+    await expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        20,
+        3,
+      ),
+    ).rejects.toThrow("Invalid Content-Range");
+  });
+  it("caps streamed full downloads instead of trusting Content-Length", async () => {
+    let cancelled = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url, options) =>
+        options.headers.has("Range")
+          ? new Response("ignored", { status: 200 })
+          : new Response(
+              new ReadableStream({
+                start(c) {
+                  c.enqueue(new Uint8Array(32 * 1024 * 1024 + 1));
+                },
+                cancel() {
+                  cancelled = true;
+                },
+              }),
+              { status: 200 },
+            ),
+      ),
+    );
+    await expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+      ),
+    ).rejects.toThrow("supported download size");
+    expect(cancelled).toBe(true);
+  });
+  it("reports a full-download timeout as a real error rather than navigation cancellation", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url, options) => {
+        if (options.headers.has("Range"))
+          return new Response("ignored", { status: 200 });
+        return new Promise<Response>((_resolve, reject) =>
+          options.signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("timeout", "AbortError")),
+            { once: true },
+          ),
+        );
+      }),
+    );
+    const pending = expect(
+      new ResilientMapSource("https://example.test/map.pmtiles").getBytes(
+        0,
+        16,
+      ),
+    ).rejects.toThrow("download timed out");
+    await vi.advanceTimersByTimeAsync(30000);
+    await pending;
   });
 });
