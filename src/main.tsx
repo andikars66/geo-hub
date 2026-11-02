@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Info,
   X,
-  LocateFixed,
 } from "lucide-react";
 import {
   labels,
@@ -69,8 +68,7 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
     [selected, setSelected] = useState<string[]>([]),
     [notice, setNotice] = useState(""),
     [panel, setPanel] = useState<"layer" | "export" | "info" | null>(null),
-    [opacity, setOpacity] = useState(0.23),
-    [fitKey, setFitKey] = useState(0);
+    [opacity, setOpacity] = useState(0.23);
   const [searchOpen, setSearchOpen] = useState(false),
     [basemap, setBasemap] = useState(true),
     [colorful, setColorful] = useState(false),
@@ -169,7 +167,6 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
       >
         <Suspense fallback={<p className="loading">Memuat peta…</p>}>
           <MapView
-            key={fitKey}
             regions={regions}
             active={active}
             mode={view.mode}
@@ -326,13 +323,7 @@ function Workspace({ regions, tiles }: { regions: Regions; tiles: string }) {
         >
           <Layers size={20} />
         </button>
-        <button
-          title="Pusatkan peta"
-          aria-label="Sesuaikan peta ke wilayah aktif"
-          onClick={() => setFitKey((n) => n + 1)}
-        >
-          <LocateFixed size={20} />
-        </button>
+
         <button
           title="Tentang data"
           aria-label="Tentang data"

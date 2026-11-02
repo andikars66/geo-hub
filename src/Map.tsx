@@ -5,10 +5,53 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { levels, type Region, type Regions, displayed } from "./model";
 import type { LabelStyle } from "./mapStyle";
 import MapLabels from "./MapLabels";
+import { cameraPadding } from "./camera";
 import { ResilientMapSource } from "./mapSource";
 import { X } from "lucide-react";
 let registered = false;
 const protocol = new Protocol();
+function fitRegion(map: MLMap, region: Region, duration: number) {
+  const rect = map.getContainer().getBoundingClientRect();
+  const context = document
+    .querySelector(".context-panel")
+    ?.getBoundingClientRect();
+  const [west, south, east, north] = region.bbox;
+  map.fitBounds(
+    [
+      [west, south],
+      [east, north],
+    ],
+    {
+      padding: cameraPadding(
+        rect.width,
+        rect.height,
+        context ? context.bottom - rect.top : 0,
+      ),
+      duration: matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? 0
+        : duration,
+    },
+  );
+}
+function centerControl(onCenter: () => void) {
+  const container = document.createElement("div");
+  container.className = "maplibregl-ctrl maplibregl-ctrl-group center-control";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.title = "Pusatkan peta";
+  button.setAttribute("aria-label", "Sesuaikan peta ke wilayah aktif");
+  button.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 12h3m14 0h3M12 2v3m0 14v3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>';
+  button.onclick = onCenter;
+  container.append(button);
+  return {
+    onAdd: () => container,
+    onRemove: () => {
+      button.onclick = null;
+      container.remove();
+    },
+  };
+}
 export default function MapView({
   regions,
   active,
@@ -155,6 +198,10 @@ export default function MapView({
       "top-right",
     );
     m.addControl(
+      centerControl(() => fitRegion(m, activeRef.current, 500)),
+      "top-right",
+    );
+    m.addControl(
       new maplibregl.ScaleControl({ unit: "metric" }),
       "bottom-right",
     );
@@ -261,20 +308,7 @@ export default function MapView({
     });
     const resize = new ResizeObserver(() => {
       m.resize();
-      const b = activeRef.current.bbox;
-      m.fitBounds(
-        [
-          [b[0], b[1]],
-          [b[2], b[3]],
-        ],
-        {
-          padding:
-            m.getContainer().clientWidth < 900
-              ? { top: 150, bottom: 250, left: 35, right: 45 }
-              : { top: 110, bottom: 70, left: 80, right: 80 },
-          duration: 0,
-        },
-      );
+      fitRegion(m, activeRef.current, 0);
     });
     resize.observe(host.current!);
     return () => {
@@ -287,22 +321,7 @@ export default function MapView({
   useEffect(() => {
     if (!ready) return;
     const m = map.current!;
-    const b = active.bbox;
-    m.fitBounds(
-      [
-        [b[0], b[1]],
-        [b[2], b[3]],
-      ],
-      {
-        padding:
-          m.getContainer().clientWidth < 900
-            ? { top: 150, bottom: 250, left: 35, right: 45 }
-            : { top: 110, bottom: 70, left: 80, right: 80 },
-        duration: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? 0
-          : 500,
-      },
-    );
+    fitRegion(m, active, 500);
     let alive = true;
     const controller = new AbortController();
     clearIssue("outline");

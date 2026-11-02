@@ -462,8 +462,8 @@ test("context follows search with full hierarchy and download lives in map contr
       .getByRole("button", { name: "Unduh peta wilayah aktif" }),
   ).toHaveCount(0);
   const controls = page.getByRole("group", { name: "Kontrol peta" });
-  await expect(controls.getByRole("button")).toHaveCount(4);
-  await expect(controls.locator("svg")).toHaveCount(4);
+  await expect(controls.getByRole("button")).toHaveCount(3);
+  await expect(controls.locator("svg")).toHaveCount(3);
   await controls
     .getByRole("button", { name: "Unduh peta wilayah aktif" })
     .click();
@@ -506,4 +506,80 @@ test("context follows search with full hierarchy and download lives in map contr
       });
   }
   await page.screenshot({ path: "test-results/context-toolbar-mobile.png" });
+});
+
+test("mobile logo is complete and center below zoom restores framing without reloading map", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.route("https://tile.openstreetmap.org/**", (r) => r.abort());
+  await page.goto("/");
+  await expect
+    .poll(async () =>
+      Number(await page.locator(".map-canvas").getAttribute("data-features")),
+    )
+    .toBeGreaterThan(0);
+  await expect(page.locator(".brand-icon")).toBeVisible();
+  await expect(page.locator(".brand")).toContainText("GeoHub");
+  const center = page.getByRole("button", {
+      name: "Sesuaikan peta ke wilayah aktif",
+    }),
+    zoom = page.getByRole("button", { name: "Perkecil", exact: true });
+  const c = await center.boundingBox(),
+    z = await zoom.boundingBox();
+  expect(c!.y).toBeGreaterThanOrEqual(z!.y + z!.height);
+  expect(Math.abs(c!.x - z!.x)).toBeLessThan(2);
+  await page.waitForTimeout(600);
+  const positions = () =>
+    page
+      .locator(".map-labels span")
+      .evaluateAll((es) =>
+        es.map((e) => ({
+          id: e.getAttribute("data-region-id"),
+          x: parseFloat((e as HTMLElement).style.left),
+          y: parseFloat((e as HTMLElement).style.top),
+        })),
+      );
+  const before = await positions();
+  const context = await page.locator(".context-panel").boundingBox();
+  expect(Math.min(...before.map((p) => p.y))).toBeGreaterThan(
+    context!.y + context!.height,
+  );
+  await page.locator("canvas.maplibregl-canvas").evaluate((e) => {
+    e.setAttribute("data-preserved", "yes");
+  });
+  await page.mouse.move(160, 420);
+  await page.mouse.down();
+  await page.mouse.move(100, 500, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(positions).not.toEqual(before);
+  await center.click();
+  await expect
+    .poll(async () => {
+      const after = await positions();
+      return after.filter((p) =>
+        before.some(
+          (b) =>
+            b.id === p.id && Math.abs(b.x - p.x) < 2 && Math.abs(b.y - p.y) < 2,
+        ),
+      ).length;
+    })
+    .toBe(before.length);
+  await expect(page.locator("canvas.maplibregl-canvas")).toHaveAttribute(
+    "data-preserved",
+    "yes",
+  );
+  for (const width of [360, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(page.locator(".brand-icon")).toBeVisible();
+    const actions = await page.locator(".explore-actions").boundingBox(),
+      brand = await page.locator(".explore-brand").boundingBox();
+    expect(actions!.x).toBeGreaterThan(brand!.x + brand!.width);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.screenshot({ path: "test-results/mobile-logo-center.png" });
 });

@@ -1479,11 +1479,6 @@ dialog[open] {
     font-size: 11px;
   }
 }
-@media (max-width: 380px) {
-  .explore-brand .brand-icon {
-    display: none;
-  }
-}
 /* Keep source warnings clear of the search/context stack. */
 .map-error {
   top: auto;
@@ -1504,13 +1499,57 @@ dialog[open] {
     max-width: none;
   }
 }
-@media (max-width: 380px) {
-  .explore-brand .brand small {
-    letter-spacing: 1px;
-  }
-}
 @media (max-width: 899px) {
   .map-frame .maplibregl-ctrl-top-right {
     top: var(--map-controls-top, 220px);
+  }
+}
+
+.center-control button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #294c36;
+}
+@media (max-width: 899px) {
+  .explore-brand .brand-icon {
+    display: grid;
+  }
+  .explore-brand .brand small {
+    letter-spacing: 2px;
+  }
+  .explore-actions {
+    gap: 4px;
+  }
+  .explore-actions button {
+    width: 44px;
+  }
+  .explore-brand {
+    padding: 8px;
+  }
+  .explore-brand .brand {
+    gap: 8px;
+  }
+  .map-frame .maplibregl-ctrl-group button {
+    width: 44px !important;
+    height: 44px !important;
+    min-height: 44px;
+  }
+  .map-frame .maplibregl-ctrl-top-right {
+    right: 3px;
+  }
+}
+@media (max-width: 340px) {
+  .explore-brand .brand {
+    font-size: 17px;
+    gap: 6px;
+  }
+  .explore-brand .brand small {
+    font-size: 7px;
+    letter-spacing: 1.5px;
+  }
+  .explore-brand .brand-icon {
+    width: 29px;
+    height: 31px;
   }
 }

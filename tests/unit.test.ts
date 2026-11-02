@@ -1,3 +1,4 @@
+import { cameraPadding } from "../src/camera";
 import { EtagMismatch } from "pmtiles";
 import { ResilientMapSource } from "../src/mapSource";
 import { layoutLabels } from "../src/labelLayout";
@@ -368,5 +369,20 @@ describe("PMTiles full-archive fallback", () => {
     ).rejects.toThrow("download timed out");
     await vi.advanceTimersByTimeAsync(30000);
     await pending;
+  });
+});
+
+describe("camera framing below the search context", () => {
+  it("leaves the search/context clear and shifts mobile framing down", () => {
+    const padding = cameraPadding(360, 800, 200);
+    expect(padding.top).toBe(228);
+    expect(padding.top).toBeGreaterThan(padding.bottom);
+    expect(padding.right).toBeGreaterThan(padding.left);
+  });
+  it("adapts to context height and clamps padding on short screens", () => {
+    expect(cameraPadding(360, 800, 260).top).toBe(288);
+    const p = cameraPadding(320, 360, 300);
+    expect(p.top + p.bottom).toBeLessThan(360);
+    expect(cameraPadding(1440, 960, 140).top).toBeGreaterThan(140);
   });
 });
